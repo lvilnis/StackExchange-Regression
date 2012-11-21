@@ -10,6 +10,7 @@ import org.supercsv.io.CsvListReader
 import org.supercsv.prefs.CsvPreference
 import edu.stanford.nlp.process.{CoreLabelTokenFactory, PTBTokenizer}
 import edu.stanford.nlp.ling.CoreLabel
+import scala.util.Random
 
 object Test {
 
@@ -39,23 +40,33 @@ object Test {
   val lukesPath = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_is_null_creation_gt_2011-08-13.csv"""
   val lukesPath2 = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_gt_2011-08-13_creation_gt_2011-08-13.csv"""
 
-  // todo: remove html
-//  val splitRegex = "\\w+".r
-//  def tokenize(body: String): Seq[String] = splitRegex.findAllIn(body).toSeq
+  // "strong" feature might be cheating too since it indicates moderator edits. need to write a regex to get rid of
+  // moderator edits
+  // ugh and having urls in your query will be highly correlated to duplicate too since possible duplicate flags include links
+  // need to strip off the whole duplication warning
+  val possibleDuplicateRegex = "(<strong>\\w*(P|p)ossible.*?</strong>)|((P|p)ossible (d|D)uplicate:)|((C|c)losed)".r
+  val urlRegex = "<a.*?</a>".r
+  val codeRegex = "(?s)(<code>.*?</code>)|(<pre>.*?</pre>)".r
+  val tagRegex = "(<[A-Za-z]+>)|(<[A-Za-z]+/>)|(</[A-Za-z]+>)".r
+  val wsRegex = "\\s+".r
+
+//  val replacements = List(urlRegex -> "AddedTokenUrlTag", codeRegex -> "AddedTokenCodeOrPreTag", possibleDuplicateRegex -> "", tagRegex -> "AddedTokenAnyTag")
+  val replacements = List(urlRegex -> "", codeRegex -> "", possibleDuplicateRegex -> "", tagRegex -> "", wsRegex -> " ")
 
   // todo: write regexes to strip html and also add special features when html is removed like "#CodeTag#", "#PreTag"#, "#BlockquoteTag#", etc
-  def tokenize(body: String): Seq[String] = {
-    val tokenizer = new PTBTokenizer[CoreLabel](new StringReader(body), new CoreLabelTokenFactory, "")
-    val output = collectWhile((_: String) => tokenizer.hasNext)(tokenizer.next().value)
+  def tokenize(body: String): (Seq[String], Seq[String]) = {
+    val replaced = replacements.foldLeft(body)({ case (b, (regex, repl)) => regex.replaceAllIn(b, repl) })
+    val tokenizer = new PTBTokenizer[CoreLabel](new StringReader(replaced), new CoreLabelTokenFactory, "")
+    val output = collectWhile(tokenizer.hasNext)(tokenizer.next().value)
 //    output.foreach(println(_))
-    output
+    (output, Seq[String]() /* Put things like "#HasCodeTag#" etc. in here */)
   }
 
   def getRowsFromFile(fileName: String): Seq[Array[String]] = {
     val csvFile = new File(fileName)
     val br = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile)))
     val reader = new CsvListReader(br, CsvPreference.STANDARD_PREFERENCE)
-    val rows = collectWhile(null !=)(reader.read()).map(_.toArray.map(_.asInstanceOf[String]))
+    val rows = collectWhileValue(null !=)(reader.read()).map(_.toArray.map(_.asInstanceOf[String]))
     rows.drop(1)
   }
 
@@ -65,38 +76,51 @@ object Test {
     val args = if (rawArgs.isEmpty) Array(lukesPath, lukesPath2) else rawArgs
 
     // shuffle instances and take 10K for now
-    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle.take(30000)
+    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(10000)
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
-    val instances = new ArrayBuffer[(Boolean, Int, Seq[String])]
+    val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Seq[String])]
     for (r <- rows) {
       val bodyStr = cell(r, "Body")
       val closedDateStr = cell(r, "ClosedDate")
       val idStr = cell(r, "Id")
-      val tokens = tokenize(bodyStr)
+      val (tokens, extraFeatures) = tokenize(bodyStr)
       val id = idStr.toInt
       val isClosed = closedDateStr != null
-      instances += ((isClosed, id, tokens))
+      instances += ((isClosed, id, tokens, extraFeatures))
     }
 
-    object FeaturesDomain extends CategoricalTensorDomain[String]
+    object FeaturesDomain extends CategoricalTensorDomain[String] { dimensionDomain.gatherCounts = true }
     object LabelDomain extends CategoricalDomain[String]
 
     val labels = new LabelList[Label, Features](_.features)
+    for (i <- 1 to 2) {
+      for ((isClosed, id, tokens, extraFeatures) <- instances) {
+        // interesting that things like "<code>" tags have high info-gain - I guess people who dont bother to even include
+        // code samples get closed more often? this means we shouldn't just strip out all the tags, we should at least add
+        // features like "#HasCodeTags#" and whatnot.
+        val unigrams = tokens.map(_.toLowerCase)
+        // nice, can run on my laptop with 1-2-3 grams giving 2.2 million features
+        def grams(i: Int) = unigrams.sliding(i).map(_.mkString(":"))
 
-    for ((isClosed, id, tokens) <- instances) {
-      val f = new BinaryFeatures(if (isClosed) "Closed" else "Open", id.toString, FeaturesDomain, LabelDomain)
-      // gotta remove the "duplicate" feature or else we're gonna think we're smart when we're not!!
-      // interesting that things like "<code>" tags have high info-gain - I guess people who dont bother to even include
-      // code samples get closed more often? this means we shouldn't just strip out all the tags, we should at least add
-      // features like "#HasCodeTags#" and whatnot.
-      tokens.map(_.toLowerCase).filter("duplicate" !=).foreach(f +=)
-      labels += f.label
-      labels.instanceWeight(f.label) = if (isClosed) 1.0 else 1.0
+        val f = new BinaryFeatures(if (isClosed) "Closed" else "Open", id.toString, FeaturesDomain, LabelDomain) {
+          override val skipNonCategories = true
+        }
+        unigrams.foreach(f +=)
+        grams(2).foreach(f +=)
+        grams(3).foreach(f +=)
+
+        labels += f.label
+        labels.instanceWeight(f.label) = if (isClosed) 1.0 else 1.0
+      }
+      if (i == 1) {
+        FeaturesDomain.dimensionDomain.trimBelowCount(5)
+        labels.remove(0, labels.length)
+      }
     }
 
-    val (trlabels, tslabels) = labels.shuffle.split(0.7)
+    val (trlabels, tslabels) = labels.shuffle(new Random(42)).split(0.7)
     val trainLabels = new LabelList[Label, Features](trlabels, _.features)
     val testLabels = new LabelList[Label, Features](tslabels, _.features)
 
@@ -104,12 +128,16 @@ object Test {
 
     println("Vocabulary size: " + FeaturesDomain.dimensionDomain.size)
 
+    // in addition to information gain I want to print out the way the feature changes the distribution
+    // so like if the orig dist is [0.5, 0.5] and the new dists are [0.25, 0.75] and [0.75, 0.25], I want to see
+    // [0.5, -0.5] or something
     println("Top 40 features with highest information gain: ")
     new InfoGain(labels).top(40).foreach(println(_))
 
     val model = new LogLinearModel[Label, Features](_.features, LabelDomain, FeaturesDomain)
     val classifier = new ModelBasedClassifier[Label](model, LabelDomain)
 
+    val start = System.currentTimeMillis
 //    trainModelSVMSGD(trainLabels, model)
 //    trainModelLogisticRegression(trainLabels, model)
     // this one's pretty much the best right now and fast
@@ -117,6 +145,8 @@ object Test {
 //    trainModelLibLinearSVM(trainLabels, model)
     // ARG stupid naive bayes being almost as good as logistic reg and SVM
 //    trainModelNaiveBayes(trainLabels, model)
+
+    println("Classifier trained in " + ((System.currentTimeMillis - start) / 1000.0) + " seconds.")
 
     printTrial("== Training Evaluation ==", trainLabels, classifier)
     printTrial("== Testing Evaluation ==", testLabels, classifier)
@@ -160,13 +190,11 @@ object Test {
     val pieces = labels.toIterable.map(l => new GLMExample(
       labels.labelToFeatures(l).tensor.asInstanceOf[Tensor1],
       l.intValue, obj, weight = labels.instanceWeight(l)))
-    val start = System.currentTimeMillis
     var i = 0
     while (!isConverged(i)) {
       strategy.processExamples(pieces)
       i += 1
     }
-    println("Classifier trained in " + ((System.currentTimeMillis - start) / 1000.0) + " seconds.")
   }
 
   def printTrial(label: String, labels: Iterable[Label], classifier: Classifier[Label]): Unit = {
@@ -176,7 +204,13 @@ object Test {
     println(testTrial.toString)
   }
 
-  def collectWhile[A: Manifest, B >: A](cond: B => Boolean)(value: => A): Seq[A] = {
+  def collectWhile[A: Manifest](cond: => Boolean)(value: => A): Seq[A] = {
+    val arr = new ArrayBuffer[A]()
+    while (cond) { arr += value }
+    arr.toSeq
+  }
+
+  def collectWhileValue[A: Manifest, B >: A](cond: B => Boolean)(value: => A): Seq[A] = {
     val arr = new ArrayBuffer[A]()
     var curVal = value
     while (cond(curVal)) { arr += curVal; curVal = value }
