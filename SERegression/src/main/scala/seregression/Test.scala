@@ -12,6 +12,7 @@ import edu.stanford.nlp.process.{CoreLabelTokenFactory, PTBTokenizer}
 import edu.stanford.nlp.ling.CoreLabel
 import scala.util.Random
 import scala.util.matching.Regex
+import collection.mutable
 
 object Test {
 
@@ -59,9 +60,16 @@ object Test {
     Replacement(tagRegex, "", ""),
     Replacement(wsRegex, " ", ""))
 
+  def tagsToFeatures(tags: String): Array[String] = tags.drop(1).dropRight(1).split("><")
+
+  def bucketizeBodyLength(len: Int): String =
+    if (len < 1000) "0-1000"
+    else "1000+"
+
   // todo: write regexes to strip html and also add special features when html is removed like "#CodeTag#", "#PreTag"#, "#BlockquoteTag#", etc
   def tokenize(body: String): (Seq[String], Set[String]) = {
     val feats = new ArrayBuffer[String]
+    feats += "#BodyLength" + bucketizeBodyLength(body.length) + "#"
     val replaced = replacements.foldLeft(body)({ case (b, Replacement(regex, repl, feat)) =>
       if (feat != "") feats += feat
       regex.replaceAllIn(b, repl)
@@ -86,7 +94,7 @@ object Test {
     val args = if (rawArgs.isEmpty) Array(lukesPath, lukesPath2) else rawArgs
 
     // shuffle instances and take 10K for now
-    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(10000)
+    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(30000)
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
@@ -95,10 +103,14 @@ object Test {
       val bodyStr = cell(r, "Body")
       val closedDateStr = cell(r, "ClosedDate")
       val idStr = cell(r, "Id")
-      val (tokens, extraFeatures) = tokenize(bodyStr)
+      val tagsStr = cell(r, "Tags")
+      val extraFeatures = new mutable.HashSet[String]
+      extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
+      val (tokens, fts) = tokenize(bodyStr)
+      extraFeatures ++= fts
       val id = idStr.toInt
       val isClosed = closedDateStr != null
-      instances += ((isClosed, id, tokens, extraFeatures))
+      instances += ((isClosed, id, tokens, extraFeatures.toSet))
     }
 
     object FeaturesDomain extends CategoricalTensorDomain[String] { dimensionDomain.gatherCounts = true }
@@ -118,8 +130,8 @@ object Test {
           override val skipNonCategories = true
         }
         unigrams.foreach(f +=)
-        grams(2).foreach(f +=)
-        grams(3).foreach(f +=)
+//        grams(2).foreach(f +=)
+//        grams(3).foreach(f +=)
         extraFeatures.foreach(f +=)
 
         // sanity check
@@ -129,7 +141,8 @@ object Test {
         labels.instanceWeight(f.label) = if (isClosed) 1.0 else 1.0
       }
       if (i == 1) {
-        FeaturesDomain.dimensionDomain.trimBelowCount(5)
+        // TODO just add some extra features for like # of uncommon words, etc - don't trim
+        FeaturesDomain.dimensionDomain.trimBelowCount(2)
         labels.remove(0, labels.length)
       }
     }
