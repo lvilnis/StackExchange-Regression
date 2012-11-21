@@ -11,6 +11,7 @@ import org.supercsv.prefs.CsvPreference
 import edu.stanford.nlp.process.{CoreLabelTokenFactory, PTBTokenizer}
 import edu.stanford.nlp.ling.CoreLabel
 import scala.util.Random
+import scala.util.matching.Regex
 
 object Test {
 
@@ -50,16 +51,25 @@ object Test {
   val tagRegex = "(<[A-Za-z]+>)|(<[A-Za-z]+/>)|(</[A-Za-z]+>)".r
   val wsRegex = "\\s+".r
 
-//  val replacements = List(urlRegex -> "AddedTokenUrlTag", codeRegex -> "AddedTokenCodeOrPreTag", possibleDuplicateRegex -> "", tagRegex -> "AddedTokenAnyTag")
-  val replacements = List(urlRegex -> "", codeRegex -> "", possibleDuplicateRegex -> "", tagRegex -> "", wsRegex -> " ")
+  case class Replacement(regex: Regex, replaceWith: String, feature: String)
+  val replacements = List(
+    Replacement(urlRegex, "", "#URL#"),
+    Replacement(codeRegex, "", "#CODE#"),
+    Replacement(possibleDuplicateRegex, "", ""),
+    Replacement(tagRegex, "", ""),
+    Replacement(wsRegex, " ", ""))
 
   // todo: write regexes to strip html and also add special features when html is removed like "#CodeTag#", "#PreTag"#, "#BlockquoteTag#", etc
-  def tokenize(body: String): (Seq[String], Seq[String]) = {
-    val replaced = replacements.foldLeft(body)({ case (b, (regex, repl)) => regex.replaceAllIn(b, repl) })
+  def tokenize(body: String): (Seq[String], Set[String]) = {
+    val feats = new ArrayBuffer[String]
+    val replaced = replacements.foldLeft(body)({ case (b, Replacement(regex, repl, feat)) =>
+      if (feat != "") feats += feat
+      regex.replaceAllIn(b, repl)
+    })
     val tokenizer = new PTBTokenizer[CoreLabel](new StringReader(replaced), new CoreLabelTokenFactory, "")
     val output = collectWhile(tokenizer.hasNext)(tokenizer.next().value)
 //    output.foreach(println(_))
-    (output, Seq[String]() /* Put things like "#HasCodeTag#" etc. in here */)
+    (output, feats.toSet /* Put things like "#HasCodeTag#" etc. in here */)
   }
 
   def getRowsFromFile(fileName: String): Seq[Array[String]] = {
@@ -80,7 +90,7 @@ object Test {
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
-    val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Seq[String])]
+    val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Set[String])]
     for (r <- rows) {
       val bodyStr = cell(r, "Body")
       val closedDateStr = cell(r, "ClosedDate")
@@ -110,6 +120,10 @@ object Test {
         unigrams.foreach(f +=)
         grams(2).foreach(f +=)
         grams(3).foreach(f +=)
+        extraFeatures.foreach(f +=)
+
+        // sanity check
+//        if (isClosed) f += "#GROUNDTRUTH#"
 
         labels += f.label
         labels.instanceWeight(f.label) = if (isClosed) 1.0 else 1.0
