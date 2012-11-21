@@ -49,6 +49,8 @@ object Test {
   val possibleDuplicateRegex = "(<strong>\\w*(P|p)ossible.*?</strong>)|((P|p)ossible (d|D)uplicate:)|((C|c)losed)".r
   val urlRegex = "<a.*?</a>".r
   val codeRegex = "(?s)(<code>.*?</code>)|(<pre>.*?</pre>)".r
+  val quoteRegex = "(?s)<blockquote>.*?</blockquote>".r
+  val imgRegex = "<img>".r
   val tagRegex = "(<[A-Za-z]+>)|(<[A-Za-z]+/>)|(</[A-Za-z]+>)".r
   val wsRegex = "\\s+".r
 
@@ -57,6 +59,8 @@ object Test {
     Replacement(urlRegex, "", "#URL#"),
     Replacement(codeRegex, "", "#CODE#"),
     Replacement(possibleDuplicateRegex, "", ""),
+    Replacement(quoteRegex, "", "#BLOCKQUOTE#"),
+    Replacement(imgRegex, "", "#IMG#"),
     Replacement(tagRegex, "", ""),
     Replacement(wsRegex, " ", ""))
 
@@ -67,7 +71,7 @@ object Test {
     else "1000+"
 
   // todo: write regexes to strip html and also add special features when html is removed like "#CodeTag#", "#PreTag"#, "#BlockquoteTag#", etc
-  def tokenize(body: String): (Seq[String], Set[String]) = {
+  def tokenize(body: String): (Seq[String], Seq[String]) = {
     val feats = new ArrayBuffer[String]
     feats += "#BodyLength" + bucketizeBodyLength(body.length) + "#"
     val replaced = replacements.foldLeft(body)({ case (b, Replacement(regex, repl, feat)) =>
@@ -77,7 +81,7 @@ object Test {
     val tokenizer = new PTBTokenizer[CoreLabel](new StringReader(replaced), new CoreLabelTokenFactory, "")
     val output = collectWhile(tokenizer.hasNext)(tokenizer.next().value)
 //    output.foreach(println(_))
-    (output, feats.toSet /* Put things like "#HasCodeTag#" etc. in here */)
+    (output, feats.toSeq)
   }
 
   def getRowsFromFile(fileName: String): Seq[Array[String]] = {
@@ -98,19 +102,19 @@ object Test {
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
-    val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Set[String])]
+    val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Seq[String])]
     for (r <- rows) {
       val bodyStr = cell(r, "Body")
       val closedDateStr = cell(r, "ClosedDate")
       val idStr = cell(r, "Id")
       val tagsStr = cell(r, "Tags")
-      val extraFeatures = new mutable.HashSet[String]
+      val extraFeatures = new mutable.ArrayBuffer[String]
       extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
       val (tokens, fts) = tokenize(bodyStr)
       extraFeatures ++= fts
       val id = idStr.toInt
       val isClosed = closedDateStr != null
-      instances += ((isClosed, id, tokens, extraFeatures.toSet))
+      instances += ((isClosed, id, tokens, extraFeatures))
     }
 
     object FeaturesDomain extends CategoricalTensorDomain[String] { dimensionDomain.gatherCounts = true }
@@ -119,9 +123,6 @@ object Test {
     val labels = new LabelList[Label, Features](_.features)
     for (i <- 1 to 2) {
       for ((isClosed, id, tokens, extraFeatures) <- instances) {
-        // interesting that things like "<code>" tags have high info-gain - I guess people who dont bother to even include
-        // code samples get closed more often? this means we shouldn't just strip out all the tags, we should at least add
-        // features like "#HasCodeTags#" and whatnot.
         val unigrams = tokens.map(_.toLowerCase)
         // nice, can run on my laptop with 1-2-3 grams giving 2.2 million features
         def grams(i: Int) = unigrams.sliding(i).map(_.mkString(":"))
@@ -129,10 +130,14 @@ object Test {
         val f = new BinaryFeatures(if (isClosed) "Closed" else "Open", id.toString, FeaturesDomain, LabelDomain) {
           override val skipNonCategories = true
         }
-        unigrams.foreach(f +=)
+//        unigrams.foreach(f +=)
 //        grams(2).foreach(f +=)
 //        grams(3).foreach(f +=)
         extraFeatures.foreach(f +=)
+
+        // try some cross products of tags and word features
+        val tags = extraFeatures.distinct.filter(_.startsWith("#Tag"))
+        unigrams.distinct.flatMap(u => tags.map(ef => "#Pair-" + u + ":" + ef + "#")).foreach(f +=)
 
         // sanity check
 //        if (isClosed) f += "#GROUNDTRUTH#"
