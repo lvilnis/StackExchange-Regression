@@ -130,7 +130,7 @@ object Test {
         val f = new BinaryFeatures(if (isClosed) "Closed" else "Open", id.toString, FeaturesDomain, LabelDomain) {
           override val skipNonCategories = true
         }
-//        unigrams.foreach(f +=)
+        unigrams.foreach(f +=)
 //        grams(2).foreach(f +=)
 //        grams(3).foreach(f +=)
         extraFeatures.foreach(f +=)
