@@ -98,7 +98,7 @@ object Test {
     val args = if (rawArgs.isEmpty) Array(lukesPath, lukesPath2) else rawArgs
 
     // shuffle instances and take 10K for now
-    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(30000)
+    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(100000)
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
@@ -171,9 +171,9 @@ object Test {
 
     val start = System.currentTimeMillis
 //    trainModelSVMSGD(trainLabels, model)
-//    trainModelLogisticRegression(trainLabels, model)
+    trainModelLogisticRegression(trainLabels, model)
     // this one's pretty much the best right now and fast
-    trainModelLogisticRegressionSGD(trainLabels, model)
+//    trainModelLogisticRegressionSGD(trainLabels, model)
 //    trainModelLibLinearSVM(trainLabels, model)
     // ARG stupid naive bayes being almost as good as logistic reg and SVM
 //    trainModelNaiveBayes(trainLabels, model)
@@ -185,7 +185,7 @@ object Test {
   }
 
   def trainModelLogisticRegression(labels: LabelList[Label, Features], model: LogLinearModel[Label, Features]) = {
-    val lbfgs = new LBFGS with L2Regularization { variance = 10.0 }
+    val lbfgs = new LBFGS with L2Regularization { variance = 1.0 }
     val strategy = new BatchTrainer(model, lbfgs)
     trainModel(labels, _ => strategy.isConverged, strategy, ObjectiveFunctions.logMultiClassObjective)
   }
@@ -198,10 +198,10 @@ object Test {
   def trainModelLibLinearSVM(ll: LabelList[Label, Features], model: LogLinearModel[Label, Features]) = {
     val xs: Seq[Tensor1] = ll.map(ll.labelToFeatures(_).tensor.asInstanceOf[Tensor1])
     val ys: Array[Int]   = ll.map(_.intValue).toArray
-    val weightTensor = for (label <- 0 until 2) yield new LinearL2SVM().train(xs, ys, label)
+    val weightTensor = new LinearL2SVM().train(xs, ys, 0)
     for (f <- 0 until ll.featureDomain.size) {
-      model.evidenceTemplate.weights(0, f) = weightTensor(0)(f)
-      model.evidenceTemplate.weights(1, f) = weightTensor(1)(f)
+      model.evidenceTemplate.weights(0, f) = weightTensor(f)
+      model.evidenceTemplate.weights(1, f) = -weightTensor(f)
     }
   }
 
