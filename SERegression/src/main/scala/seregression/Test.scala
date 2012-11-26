@@ -16,7 +16,7 @@ import collection.mutable
 
 object Test {
 
-  val col = Map(
+  val col_old = Map(
     "Id" -> 1,
     "PostTypeId" -> 2,
     "AcceptedAnswerId" -> 3,
@@ -38,6 +38,23 @@ object Test {
     "FavoriteCount" -> 19,
     "ClosedDate" -> 20,
     "CommunityOwnedDate" -> 21)
+
+  val col = Map(
+    "PostId" -> 1,
+    "PostCreationDate" -> 2,
+    "OwnerUserId" -> 3,
+    "OwnerCreationDate" -> 4,
+    "ReputationAtPostCreation" -> 5,
+    "OwnerUndeletedAnswerCountAtPostTime" -> 6,
+    "Title" -> 7,
+    "BodyMarkdown" -> 8,
+    "Tag1" -> 9,
+    "Tag2" -> 10,
+    "Tag3" -> 11,
+    "Tag4" -> 12,
+    "Tag5" -> 13,
+    "PostClosedDate" -> 14,
+    "OpenStatus" -> 15)
 
   val lukesPath = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_is_null_creation_gt_2011-08-13.csv"""
   val lukesPath2 = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_gt_2011-08-13_creation_gt_2011-08-13.csv"""
@@ -104,16 +121,17 @@ object Test {
 
     val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Seq[String])]
     for (r <- rows) {
-      val bodyStr = cell(r, "Body")
-      val closedDateStr = cell(r, "ClosedDate")
-      val idStr = cell(r, "Id")
-      val tagsStr = cell(r, "Tags")
+      val bodyStr = cell(r, "BodyMarkdown")
+      val closedDateStr = cell(r, "OpenStatus")
+      val idStr = cell(r, "PostId")
+//      val tagsStr = cell(r, "Tags")
       val extraFeatures = new mutable.ArrayBuffer[String]
-      extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
+//      extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
       val (tokens, fts) = tokenize(bodyStr)
       extraFeatures ++= fts
+      extraFeatures ++= List("Tag1","Tag2","Tag3","Tag4","Tag5").map(cell(r,_)).map("#Tag-" + _ + "#")
       val id = idStr.toInt
-      val isClosed = closedDateStr != null
+      val isClosed = closedDateStr == "closed"
       instances += ((isClosed, id, tokens, extraFeatures))
     }
 
@@ -171,9 +189,9 @@ object Test {
 
     val start = System.currentTimeMillis
 //    trainModelSVMSGD(trainLabels, model)
-    trainModelLogisticRegression(trainLabels, model)
+//    trainModelLogisticRegression(trainLabels, model)
     // this one's pretty much the best right now and fast
-//    trainModelLogisticRegressionSGD(trainLabels, model)
+    trainModelLogisticRegressionSGD(trainLabels, model)
 //    trainModelLibLinearSVM(trainLabels, model)
     // ARG stupid naive bayes being almost as good as logistic reg and SVM
 //    trainModelNaiveBayes(trainLabels, model)
