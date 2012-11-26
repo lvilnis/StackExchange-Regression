@@ -1,6 +1,7 @@
 package seregression
 
 import java.io._
+import java.util.ArrayList
 import collection.mutable.ArrayBuffer
 import org.supercsv.io.{CsvListReader, CsvListWriter}
 import org.supercsv.prefs.CsvPreference
@@ -41,8 +42,11 @@ class FEPipeline(funs: List[FEFun]) {
   def writeCSV(filename: String, rows: List[Array[String]]): Unit = {
     val listWriter = new CsvListWriter(new FileWriter(filename),
                                        CsvPreference.STANDARD_PREFERENCE)
+
     for (row <- rows) {
-      listWriter.write(row.toList)
+      val rowValues = new ArrayList[String]
+      row.foreach(rowValues.add(_))
+      listWriter.write(rowValues)
     }
   }
 
