@@ -16,7 +16,7 @@ import collection.mutable
 
 object Test {
 
-  val col = Map(
+  val col_old = Map(
     "Id" -> 1,
     "PostTypeId" -> 2,
     "AcceptedAnswerId" -> 3,
@@ -38,6 +38,23 @@ object Test {
     "FavoriteCount" -> 19,
     "ClosedDate" -> 20,
     "CommunityOwnedDate" -> 21)
+
+  val col = Map(
+    "PostId" -> 1,
+    "PostCreationDate" -> 2,
+    "OwnerUserId" -> 3,
+    "OwnerCreationDate" -> 4,
+    "ReputationAtPostCreation" -> 5,
+    "OwnerUndeletedAnswerCountAtPostTime" -> 6,
+    "Title" -> 7,
+    "BodyMarkdown" -> 8,
+    "Tag1" -> 9,
+    "Tag2" -> 10,
+    "Tag3" -> 11,
+    "Tag4" -> 12,
+    "Tag5" -> 13,
+    "PostClosedDate" -> 14,
+    "OpenStatus" -> 15)
 
   val lukesPath = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_is_null_creation_gt_2011-08-13.csv"""
   val lukesPath2 = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_gt_2011-08-13_creation_gt_2011-08-13.csv"""
@@ -98,22 +115,23 @@ object Test {
     val args = if (rawArgs.isEmpty) Array(lukesPath, lukesPath2) else rawArgs
 
     // shuffle instances and take 10K for now
-    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(30000)
+    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(100000)
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
     val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Seq[String])]
     for (r <- rows) {
-      val bodyStr = cell(r, "Body")
-      val closedDateStr = cell(r, "ClosedDate")
-      val idStr = cell(r, "Id")
-      val tagsStr = cell(r, "Tags")
+      val bodyStr = cell(r, "BodyMarkdown")
+      val closedDateStr = cell(r, "OpenStatus")
+      val idStr = cell(r, "PostId")
+//      val tagsStr = cell(r, "Tags")
       val extraFeatures = new mutable.ArrayBuffer[String]
-      extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
+//      extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
       val (tokens, fts) = tokenize(bodyStr)
       extraFeatures ++= fts
+      extraFeatures ++= List("Tag1","Tag2","Tag3","Tag4","Tag5").map(cell(r,_)).map("#Tag-" + _ + "#")
       val id = idStr.toInt
-      val isClosed = closedDateStr != null
+      val isClosed = closedDateStr == "closed"
       instances += ((isClosed, id, tokens, extraFeatures))
     }
 
@@ -185,7 +203,7 @@ object Test {
   }
 
   def trainModelLogisticRegression(labels: LabelList[Label, Features], model: LogLinearModel[Label, Features]) = {
-    val lbfgs = new LBFGS with L2Regularization { variance = 10.0 }
+    val lbfgs = new LBFGS with L2Regularization { variance = 1.0 }
     val strategy = new BatchTrainer(model, lbfgs)
     trainModel(labels, _ => strategy.isConverged, strategy, ObjectiveFunctions.logMultiClassObjective)
   }
@@ -198,10 +216,10 @@ object Test {
   def trainModelLibLinearSVM(ll: LabelList[Label, Features], model: LogLinearModel[Label, Features]) = {
     val xs: Seq[Tensor1] = ll.map(ll.labelToFeatures(_).tensor.asInstanceOf[Tensor1])
     val ys: Array[Int]   = ll.map(_.intValue).toArray
-    val weightTensor = for (label <- 0 until 2) yield new LinearL2SVM().train(xs, ys, label)
+    val weightTensor = new LinearL2SVM().train(xs, ys, 0)
     for (f <- 0 until ll.featureDomain.size) {
-      model.evidenceTemplate.weights(0, f) = weightTensor(0)(f)
-      model.evidenceTemplate.weights(1, f) = weightTensor(1)(f)
+      model.evidenceTemplate.weights(0, f) = weightTensor(f)
+      model.evidenceTemplate.weights(1, f) = -weightTensor(f)
     }
   }
 

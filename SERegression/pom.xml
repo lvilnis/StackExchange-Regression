@@ -42,8 +42,51 @@
     </dependencies>
 
     <build>
-      <sourceDirectory>src/main/scala</sourceDirectory>
-      <testSourceDirectory>src/test/scala</testSourceDirectory>
+      <sourceDirectory>src/main</sourceDirectory>
+      <testSourceDirectory>src/test</testSourceDirectory>
+        <plugins>
+          <plugin>
+            <groupId>org.scala-tools</groupId>
+            <artifactId>maven-scala-plugin</artifactId>
+            <version>2.15.2</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>compile</goal>
+                  <goal>testCompile</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <scalaVersion>${scala.version}</scalaVersion>
+              <jvmArgs>
+                <jvmArg>-Xms64m</jvmArg>
+                <jvmArg>-Xmx1800m</jvmArg>
+              </jvmArgs>
+
+              <launchers>
+
+                <launcher>
+                  <id>Test</id>
+                  <mainClass>seregression.Test</mainClass>
+                  <jvmArgs>
+                    <jvmArg>-Xmx4g</jvmArg>
+                  </jvmArgs>
+                </launcher>
+
+                <launcher>
+                  <id>FeatEx</id>
+                  <mainClass>seregression.FeatEx</mainClass>
+                  <jvmArgs>
+                    <jvmArg>-Xmx4g</jvmArg>
+                  </jvmArgs>
+                </launcher>
+
+              </launchers>
+
+            </configuration>
+          </plugin>
+        </plugins>
     </build>
 
     <repositories>
