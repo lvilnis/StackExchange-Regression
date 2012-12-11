@@ -1,7 +1,7 @@
 \documentclass[11pt]{article}
 
 \usepackage{graphicx, amsmath, amsfonts, amssymb, microtype, fullpage, url, algorithm, algorithmic, hyperref, longtable}
-\newcommand{\argmax}{\operatornamewithlimits{argmax}} 
+\newcommand{\argmax}{\operatornamewithlimits{argmax}}
 \setlength{\parskip}{5pt}
 
 \title{Project Report - Classification of questions on stackoverflow\\ Machine Learning, Fall 2012}
@@ -34,11 +34,45 @@
 \end{itemize}
 
 \section{Data set}
-\begin{itemize}
-\item Used data explorer on stack overflow to get the data
-\item SuperCSV
-\item We have 100k Questions; 50k closed, 50k open
-\end{itemize}
+In our initial work, we used a data set collected using
+Stackoverflow's \emph{StackExchange Data Explorer},
+http://data.stackexchange.com/stackoverflow/queries. This online tool
+allows users to query raw data directly from
+Stackoverflow. Specifically, we issued the following commands:
+
+\begin{verbatim}
+SELECT * FROM posts WHERE PostTypeId=1 AND CreationDate > '20110813'
+    AND ClosedDate > '20110813';
+
+SELECT * FROM posts Where PostTypeId=1 AND CreatedDate > '20110813'
+    AND ClosedDate IS NULL;
+\end{verbatim}
+
+These two queries aim to retrieve all questions (PostTypeId=1) posted
+on Stackoverflow on or after August 13$^{\textrm{th}}$, 2011 that: 1)
+were closed on or after August 13$^{\textrm{th}}$ and 2) have not been
+closed, respectively.  However, as a matter of policy, the Data
+Explorer will not return more than 50,000 rows at a time.  Thus, after
+issuing these two queries, we had collected a data set of 50,000
+questions that had been closed and 50,000 that were still open (as of
+query issue date).
+
+The data was formatted in CSV and contained the following fields:
+Question Id, PostTypeId, AcceptedAnswerId, ParentId, CreationDate,
+Score, ViewCount, Body, OwnerUserId, LastEditorUserId,
+LastEditorDisplayName, LastEditDate, LastActivityData, Title, Tags,
+AnswerCount, CommentCount, FavoriteCount, ClosedDate and
+CommunityOwnedDate. Of these fields, the fields that we worked with
+were in our initial testing were:
+
+\begin{enumerate}
+  \item Body - the raw text of the question
+  \item Tags - user provided question categories (e.g. Java,
+    algorithms, etc.)
+\end{enumerate}
+
+To parse the CSV files collected, we used the CSV Praser from
+SuperCSV, written in Scala.
 
 \subsection{Pre-processing}
 \begin{itemize}
@@ -53,7 +87,7 @@
 \item bucketed question length
 \item presence of html tags (blockquote, code, url, etc)
 \item question tags and cross products of those tags with word features
-\item Stanford tokenizer 
+\item Stanford tokenizer
 \item Ngrams didn’t help - need smarter features - we get 100\% almost train set accuracy, so the problem is bad features, not inability to fit. Regularization also doesn’t help much at all (tried manually grid searching l2 lambda). Overfitting is not the problem.
 \end{itemize}
 
@@ -65,7 +99,7 @@
 
 \section{Results}
 \begin{itemize}
-\item 71\% accuracy with logistic regression trained using AdaGrad (not l2 regularized but effectively regularized since its an online learning algorithm). SVM, naive bayes, l2 log reg etc does slightly worse. 
+\item 71\% accuracy with logistic regression trained using AdaGrad (not l2 regularized but effectively regularized since its an online learning algorithm). SVM, naive bayes, l2 log reg etc does slightly worse.
 \item Naive bayes was winner until we added cross product features. High bias/low variance does better
 \end{itemize}
 
