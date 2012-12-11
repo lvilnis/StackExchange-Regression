@@ -35,8 +35,8 @@
 
 \section{Data set}
 In our initial work, we used a data set collected using
-Stackoverflow's \emph{StackExchange Data Explorer},
-http://data.stackexchange.com/stackoverflow/queries. This online tool
+Stackoverflow's \emph{StackExchange Data Explorer}
+\cite{website:stackexchange}. This online tool
 allows users to query raw data directly from
 Stackoverflow. Specifically, we issued the following commands:
 
@@ -54,12 +54,12 @@ were closed on or after August 13$^{\textrm{th}}$ and 2) have not been
 closed, respectively.  However, as a matter of policy, the Data
 Explorer will not return more than 50,000 rows at a time.  Thus, after
 issuing these two queries, we had collected a data set of 50,000
-questions that had been closed and 50,000 that were still open (as of
-query issue date).
+questions that had been closed (55MB) and 50,000 that were still open as of
+query issue date (75MB).
 
-The data was formatted in CSV and contained the following fields:
-Question Id, PostTypeId, AcceptedAnswerId, ParentId, CreationDate,
-Score, ViewCount, Body, OwnerUserId, LastEditorUserId,
+The data was formatted as CSV files and contained the following
+fields: Question Id, PostTypeId, AcceptedAnswerId, ParentId,
+CreationDate, Score, ViewCount, Body, OwnerUserId, LastEditorUserId,
 LastEditorDisplayName, LastEditDate, LastActivityData, Title, Tags,
 AnswerCount, CommentCount, FavoriteCount, ClosedDate and
 CommunityOwnedDate. Of these fields, the fields that we worked with
@@ -71,17 +71,43 @@ were in our initial testing were:
     algorithms, etc.)
 \end{enumerate}
 
-To parse the CSV files collected, we used the CSV Praser from
-SuperCSV, written in Scala.
+To parse the CSV files collected, we used third party CSV Praser from
+SuperCSV, written in Java \cite{website:supercsv}.
+
+Midway through our experiments, we discovered a \emph{Kaggle}
+competition for predicting closed questions on \emph{Stackoverflow}
+\cite{kaggle}. The competition materials included larger data sets: a
+sample train set (133MB) and a larger train set (3.5G).  These data
+files were also formatted as CSV files however included different
+question fields: PostId, PostCreationDate, OwnerUserId,
+OwnerCreationDate, ReutationAtPostCreation,
+OwnerUndeletedAnswerCountAtPostTime, Title, BodyMarkdown, Tag1, Tag2,
+Tag3, Tag4, Tag5, PostClosedDate and OpenStatus.
 
 \subsection{Pre-processing}
-\begin{itemize}
-\item Remove <code>
-\item Remove HTML
-\item Remove “cheating” features that proxy the ground truth (like “exact duplicate”)
-\end{itemize}
+To get the data in workable form, a number of pre-processing steps
+were required. First, the ``body'' field, which contained the text of
+each question, was formatted as HTML and had to be
+cleaned (i.e. HTML tags stripped). Additionally, images and code were
+removed.  We had to remove code because it is highly variable
+(variables always have different names) and it contains a number of
+strange characters and formatting.
+
+Additionally, there were a few components of a question whose presence
+usually indicated that the question would be closed.  For example, the
+body of a question can include a \begin{verbatim}
+  <strong> \end{verbatim} tag which indicates that a Stackoverflow
+moderator (who have the power to close posts) has commented on the
+question. These tags showed a large positive correlation to closed
+questions and thus, needed to be removed. Similarly, all ``Possible
+duplicate'' or ``Closed'' notes, attached to a question, needed to be
+removed.  Finally, any urls, which usually hyperlinked to a similar
+question on Stackoverflow, were removed.
+
+After being cleaned, the text of each question was tokenized.
 
 \subsection{Features}
+
 \begin{itemize}
 \item How did we extract features from questions?
 \item bucketed question length
@@ -119,7 +145,7 @@ SuperCSV, written in Scala.
 \item Try things besides open/closed - like answered/unanswered
 \end{itemize}
 
+\bibliography{bib}{}
 \bibliographystyle{plain}
-\bibliography{bib}
 
 \end{document}
