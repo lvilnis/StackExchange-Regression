@@ -76,7 +76,7 @@ SuperCSV, written in Java \cite{website:supercsv}.
 
 Midway through our experiments, we discovered a \emph{Kaggle}
 competition for predicting closed questions on \emph{Stackoverflow}
-\cite{kaggle}. The competition materials included larger data sets: a
+\cite{website:kaggle}. The competition materials included larger data sets: a
 sample train set (133MB) and a larger train set (3.5G).  These data
 files were also formatted as CSV files however included different
 question fields: PostId, PostCreationDate, OwnerUserId,
@@ -108,14 +108,26 @@ After being cleaned, the text of each question was tokenized.
 
 \subsection{Features}
 
+For each question, two categories of features were extracted and used
+for training: features extracted from the body of the question and
+features extracted concerning the metadata of that particular
+question. As metadata features, the following fields were extracted:
+
 \begin{itemize}
-\item How did we extract features from questions?
-\item bucketed question length
-\item presence of html tags (blockquote, code, url, etc)
-\item question tags and cross products of those tags with word features
-\item Stanford tokenizer
-\item Ngrams didn’t help - need smarter features - we get 100\% almost train set accuracy, so the problem is bad features, not inability to fit. Regularization also doesn’t help much at all (tried manually grid searching l2 lambda). Overfitting is not the problem.
+  \item Bucketed question length (in characters); a binary feature
+    taking the value '1' if the questions has more than 1000 characters
+  \item Question tags; converted to a list of strings and concatenated
+    onto each feature vector
 \end{itemize}
+
+Before extracting features from question bodies, first, each question
+body was down-cased and tokenized (using Stanford's NLP Java library)
+\cite{stanfordnlp}. Then, the count of each unigram, bigram and
+trigram, per question, was added to each feature vector. Finally, the
+cross product of all tags and distinct unigrams, per question, was
+added to each feature vector.  Using both the metadata and ngram
+features, each feature vector was on the order of 2.5 million features
+long.
 
 \section{Methods}
 \begin{itemize}
@@ -126,7 +138,9 @@ After being cleaned, the text of each question was tokenized.
 \section{Results}
 \begin{itemize}
 \item 71\% accuracy with logistic regression trained using AdaGrad (not l2 regularized but effectively regularized since its an online learning algorithm). SVM, naive bayes, l2 log reg etc does slightly worse.
-\item Naive bayes was winner until we added cross product features. High bias/low variance does better
+\item Naive bayes was winner until we added cross product
+  features. High bias/low variance does better
+  \item How long did it take run the whole thing?
 \end{itemize}
 
 \begin{figure}
@@ -135,6 +149,19 @@ After being cleaned, the text of each question was tokenized.
 \caption{Classifier accuracies in predicting closed questions}
 \label{fig:results}
 \end{figure}
+
+\section{Discussion}
+
+\begin{itemize}
+  \item Ngrams didn’t help - need smarter features - we get 100\%
+    almost train set accuracy, so the problem is bad features, not
+    inability to fit. Regularization also doesn’t help much at all
+    (tried manually grid searching l2 lambda). Overfitting is not the
+    problem.
+  \item using information gain to figure out which features were best
+  \item What where the best features? Why were they best?
+  \item What was the best classifier, why?
+\end{itemize}
 
 \section{Future directions}
 \begin{itemize}
