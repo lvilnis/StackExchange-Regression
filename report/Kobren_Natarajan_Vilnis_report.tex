@@ -11,27 +11,30 @@
 \sloppy
 
 \maketitle
-\tableofcontents
-\pagebreak
 
 \section{Problem Statement}
+
+"What is your favorite programming language?" There are to many answers to this question and very little consensus among programmers as well. The problem being the question is too broad and the answers will almost never satisfy all subgroups. But, how do we train a classifier to predict if a queston is too broad? In general, how can a classifier detect if a question is relevant given some target audience. In this project we are interested in predicting if a question asked on Stackoverflow (target audience) will be closed (not relevant to this community of users).
+
+\noindent Stackoverflow \cite{website:stackoverflow} is a forum where users ask software and programming related questions which are subsequently answered by other users in the forum. Now, there are instances when questions posed by users do not meet the requirements set by the moderators and hence are `closed'. Stackoverflow predicts that anually 6\% of its questions are closed. If only the users knew well ahead of time that the chances of their question being closed is high, then, the user could rephrase or research the question before actually posting the question on the forum.
+
+\begin{figure}
+\centering
+\fbox{\includegraphics[width=4in,height=3.5in]{images/example_label.pdf}}
+\caption{Sample closed question}
+\label{fig:sample}
+\end{figure}
+
+\noindent Stackoverflow's policy on closing questions comes into effect if a question falls into one of the five categories listed below,
 \begin{itemize}
-\item What is a closed question?
-\item Why would a question be closed?
-	\begin{itemize}
-	\item Exact duplicate - dropping closed questions in this category
-	\item Off-topic
-	\item Not constructive
-	\item Note a real question
-	\item Too localized
-	\end{itemize}
-\item What are the challenges in this problem?
-	\begin{itemize}
-	\item Finding closed questions
-	\item Sizeable chunk of closed question is code (which is stripped off)
-	\item Class label imbalance
-	\end{itemize}
+\item \textbf{Exact duplicate}: This is exactly as it phrased. If a similar question has already been asked in the past then the question is not novel in any way
+\item \textbf{Off-topic}: Like we mentioned above stackoverflow is a forum for software and programming related questions and so off-topic questions are most likely closed. e.g. From the Brain imaging toolbox, AFNI, I see lots of activity in the Dorso Lateral pre-frontal cortex, does it mean that part of the brain is involved in activity A?
+\item \textbf{Not constructive}: Questions get closed under this category when they solicit opinion, debate, arguments, polling, or extended discussion. Our opening question on "What is your favorite programming language?" is a good example
+\item \textbf{Note a real question}: When questions are ambiguous, vague, incomplete, overly broad or rhetorical. e.g. `Sort HTML attributes with JavaScript' - this user does not reveal problem encountered when attempting to perform this task 
+\item \textbf{Too localized}: If the question asked pertains to one specific problem which occurs in a specific setting and will not benefit future users of the forum. e.g. a question pertaining to an obsolete java query
 \end{itemize}
+
+\noindent Refer to figure \ref{fig:sample} for a sample of closed question. In our data analysis we have deliberately eliminated questions that fall under `Exact duplicate' category. The reason being that these are valid questions but they have already been asked before. Elimination of duplicate questions is  also less likely to confuse the classifier when attempting to tease apart closed from open questions based on structral information from questions.
 
 \section{Data set}
 In our initial work, we used a data set collected using
@@ -145,7 +148,7 @@ long.
 
 \begin{figure}
 \centering
-\fbox{\includegraphics[width=6.5in,height=6in]{stackoverflow_results}}
+\fbox{\includegraphics[width=6.5in,height=6in]{images/stackoverflow_results}}
 \caption{Classifier accuracies in predicting closed questions}
 \label{fig:results}
 \end{figure}
