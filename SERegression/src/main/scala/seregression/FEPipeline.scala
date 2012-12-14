@@ -8,7 +8,7 @@ import org.supercsv.prefs.CsvPreference
 
 /* Feature Extraction Function
  * I assume here that a instance is represented by a List of Strings*/
-class FEFun(val name: String, val fun: Array[String] => Array[String]);
+class FEFun(val name: String, val fun: Array[String] => Array[String])
 
 /* Feature Extraction Pipeline */
 class FEPipeline(funs: List[FEFun]) {

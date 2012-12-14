@@ -1,11 +1,11 @@
 package seregression
 
-import collection.mutable.HashMap
+import collection.mutable
 
 class Vocab {
 
-  private var vocab  = new HashMap[String, Int]
-  private var counts = new HashMap[String, Int]
+  private var vocab  = new mutable.HashMap[String, Int]
+  private var counts = new mutable.HashMap[String, Int]
   private var unused = List[Int]()
   private var nextIndex = 0
 
@@ -23,11 +23,11 @@ class Vocab {
       index = nextIndex
       nextIndex += 1
     }
-    return index
+    index
   }
 
   def remove(key: String): Unit = {
-    unused :+ vocab.remove(key).get
+    unused = unused :+ vocab.remove(key).get
     counts.remove(key)
   }
 
