@@ -1,4 +1,4 @@
-\documentclass[11pt]{article}
+ \documentclass[11pt]{article}
 
 \usepackage{graphicx, amsmath, amsfonts, amssymb, microtype, fullpage, url, algorithm, algorithmic, hyperref, longtable}
 \newcommand{\argmax}{\operatornamewithlimits{argmax}}
@@ -140,7 +140,7 @@ For each question, we extract two categories of features: one set of features is
 \end{itemize}
 
 Before extracting features from question bodies, first, each question
-body was down-cased and tokenized. Then, we added a binary feature for the presence of each unigram in the question body. We tried using bigram and trigram features, and while our approach was able to scale to an impressive domain size of $\rangle$2.5 million features, these did not add any noticeable improvement in performance. Using the metadata, unigram, and tag-unigram conjunction features, we had a domain size of around 900K features. 
+body was down-cased and tokenized. Then, we added a binary feature for the presence of each unigram in the question body. We tried using bigram and trigram features, and while our approach was able to scale to an impressive domain size of $\rangle$2.5 million features, these did not add any noticeable improvement in performance. Using the metadata, unigram, and tag-unigram conjunction features, we had a domain size of around 900K features.
 
 \section{Software}
 
