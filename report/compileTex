@@ -1,0 +1,2 @@
+#!/bin/bash
+pdflatex Kobren_Natarajan_Vilnis_report.tex; bibtex Kobren_Natarajan_Vilnis_report; pdflatex Kobren_Natarajan_Vilnis_report.tex; pdflatex Kobren_Natarajan_Vilnis_report.tex cat

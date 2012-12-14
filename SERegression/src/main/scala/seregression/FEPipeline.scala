@@ -51,7 +51,7 @@ class FEPipeline(funs: List[FEFun]) {
   }
 
   /*  Comment Required */
-  private def getRowsFromFile(fileName: String): Seq[Array[String]] = {
+  def getRowsFromFile(fileName: String): Seq[Array[String]] = {
     val csvFile = new File(fileName)
     val br      = new BufferedReader(new InputStreamReader(new
 					    FileInputStream(csvFile)))
