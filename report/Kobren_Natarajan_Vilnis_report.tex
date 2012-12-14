@@ -52,7 +52,7 @@ closed if it falls into one of these five categories:
 \item \textbf{Too localized}: This comes up when the question pertains to a problem which occurs in very a specific setting and will not benefit future users of the forum. In general this is reserved for e.g. questions about very specific old versions of certain software and libraries. 
 \end{itemize}
 
-\noindent Figure \ref{fig:sample} shows a sample of closed question. An important consequence of this categorization of closed questions is that there is nothing essentially wrong with questions that are closed as ``Exact duplicate,'' aside from the fact that they were asked at the wrong point in time.Elimination of duplicate questions prevents us from confusing the classifier which is attempting to identify structral commonalities between closed questions.
+\noindent Figure \ref{fig:sample} shows a sample of closed question. An important consequence of this categorization of closed questions is that there is nothing essentially wrong with questions that are closed as ``Exact duplicate,'' aside from the fact that they were asked at the wrong point in time.Elimination of duplicate questions from the training data prevents us from confusing the classifier, which is attempting to identify structral commonalities between closed questions.
 
 \section{Data set}
 In our initial work, we used a data set collected using
@@ -69,10 +69,9 @@ SELECT * FROM posts Where PostTypeId=1 AND CreatedDate > '20110813'
     AND ClosedDate IS NULL;
 \end{verbatim}
 
-These two queries aim to retrieve all questions (PostTypeId=1) posted
-on Stackoverflow on or after August 13$^{\textrm{th}}$, 2011 that: 1)
+These two queries aim to retrieve all questions (PostTypeId=1 represents a question, as opposed to a comment or an answer) posted on StackOverflow on or after August 13$^{\textrm{th}}$, 2011 that: 1)
 were closed on or after August 13$^{\textrm{th}}$ and 2) have not been
-closed, respectively.  However, as a matter of policy, the Data
+closed, respectively.  However, to prevent overloading the StackExchange servers, the Data
 Explorer will not return more than 50,000 rows at a time.  Thus, after
 issuing these two queries, we had collected a data set of 50,000
 questions that had been closed (55MB) and 50,000 that were still open as of
