@@ -24,15 +24,23 @@ audience. In this project we are interested in predicting if a
 question asked on Stackoverflow (target audience) will be closed (not
 relevant to this community of users).
 
-\noindent Stackoverflow \cite{website:stackoverflow} is a forum where
-users ask software and programming related questions which are
-subsequently answered by other users in the forum. Now, there are
-instances when questions posed by users do not meet the requirements
-set by the moderators and hence are `closed'. Stackoverflow predicts
-that anually 6\% of its questions are closed. If only the users knew
-well ahead of time that the chances of their question being closed is
-high, then, the user could rephrase or research the question before
-actually posting the question on the forum.
+\noindent Stackoverflow \cite{website:stackoverflow} is an online
+forum in which any user may ask software and programming related
+questions. These questions are subsequently answered by other users
+who participate in the forum. To keep the forum interesting and
+relevant, the website moderators (and a handful of influential users)
+have the ability to \emph{close} questions. After a question is
+closed, users cannot submit answers to it (and it also is very
+unlikely to top any search over questions).
+
+Although Stackoverflow has explicit policies regarding when a question
+may be closed, these policies are largely subjective. website policies Now, there are instances when questions posed by
+users do not meet the requirements set by the moderators and hence are
+`closed'. Stackoverflow predicts that anually 6\% of its questions are
+closed. If only the users knew well ahead of time that the chances of
+their question being closed is high, then, the user could rephrase or
+research the question before actually posting the question on the
+forum.
 
 \begin{figure}
 \centering
@@ -91,9 +99,6 @@ were in our initial testing were:
     algorithms, etc.)
 \end{enumerate}
 
-To parse the CSV files collected, we used third party CSV Praser from
-SuperCSV, written in Java \cite{website:supercsv}.
-
 Midway through our experiments, we discovered a \emph{Kaggle}
 competition for predicting closed questions on \emph{Stackoverflow}
 \cite{website:kaggle}. The competition materials included larger data sets: a
@@ -141,13 +146,28 @@ question. As metadata features, the following fields were extracted:
 \end{itemize}
 
 Before extracting features from question bodies, first, each question
-body was down-cased and tokenized (using Stanford's NLP Java library)
-\cite{stanfordnlp}. Then, the count of each unigram, bigram and
+body was down-cased and tokenized. Then, the count of each unigram, bigram and
 trigram, per question, was added to each feature vector. Finally, the
 cross product of all tags and distinct unigrams, per question, was
 added to each feature vector.  Using both the metadata and ngram
 features, each feature vector was on the order of 2.5 million features
 long.
+
+\section{Software}
+
+To facilitate writing code and expediting experimentation, we made
+extensive use of third party software. In the pre-processing stage, we
+used two different libraries.  First, to parse the CSV files
+collected, we used a CSV parser called SuperCSV, written in Java
+\cite{website:supercsv}. In addition, to tokenize the question bodies,
+we made use of the Stanford NLP Library, also written in Java
+\cite{stanfordnlp}.
+
+To facilitate experimentation with various classifiers, we used the
+FACTORIE library, written in Scala, that is developed at UMass
+Amherst.  This library provides implementations of a variety of
+textual pre-processing functions and machine learning classifiers
+\cite{mccallum09:factorie:}.
 
 \section{Methods}
 \begin{itemize}
