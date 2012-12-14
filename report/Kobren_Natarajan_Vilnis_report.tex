@@ -2,6 +2,7 @@
 
 \usepackage{graphicx, amsmath, amsfonts, amssymb, microtype, fullpage, url, algorithm, algorithmic, hyperref, longtable}
 \newcommand{\argmax}{\operatornamewithlimits{argmax}}
+\newcommand{\htmltag}{$\langle${htmltag}$\rangle$}
 \setlength{\parskip}{5pt}
 
 \title{Project Report - Classification of questions on stackoverflow\\ Machine Learning, Fall 2012}
@@ -16,36 +17,24 @@
 
 ``What is the best programming language?'' There are numerous answers
 to this question but very little consensus among programmers as to the
-correct answer. While this question is interesting and can be fun to
-discuss, it will only clutter a forum designed for objective questions
-answering. There are many other questions that have no place in
-objective, topic-specific forums (e.g. question unrelated to the
-subject matter discussed on the form). However, given a specific
-question answering forum, it is quite difficult to discover content
-that doesn't belong.
+correct one. While this question is interesting and can be fun to
+discuss, it will only clutter a forum designed for objective questions.
+In addition to opinion-based questions, other questions (e.g. off-topic questions unrelated to the
+subject matter discussed on the forum) contribute noise to such forums. Automatically identifying these questions using machine learning is a difficult problem. We attempt to build a classifier and engineer features to separate inappropriate questions from the large number of valuable questions asked on one such website, StackOverflow.
 
-\noindent Stackoverflow \cite{website:stackoverflow}, a web forum
-designed to host objective software and programming related question,
+ StackOverflow \cite{website:stackoverflow}, a web forum
+for software and programming related questions,
 has this exact problem. On StackOverflow, any user may ask any
 question; those questions are subsequently answered by other users on
 the website. StackOverflow has little infrastructure to restrict users
 from posting irrelevant and/or subjective questions on the site. To
-keep the forum clean and interesting, the website moderators (and a
+keep the forum clean and interesting, the website moderators (made up of employees and a
 handful of influential users) have the ability to \emph{close} these
-inappropriate questions. After a question is closed, it acquires a
-closed tag, users cannot submit answers to it and it also is very
-unlikely to top any search results over questions. While the question
+inappropriate questions. After a question is tagged as ``closed'', users cannot submit answers to it and it also is very unlikely to top any search results over questions. While the question
 is still reachable, these measures effectively remove the question
 from public discussion.
 
-\begin{figure}
-\centering
-\fbox{\includegraphics[width=4in,height=3.5in]{images/example_label.pdf}}
-\caption{Sample closed question}
-\label{fig:sample}
-\end{figure}
-
-\noindent Although StackOverflow has explicit policies regarding when
+ Although StackOverflow has explicit policies regarding when
 a question may be closed, these policies are largely
 subjective. According to StackOverflow, a question may be closed if it
 falls into one of these five categories:
@@ -58,21 +47,27 @@ falls into one of these five categories:
 \item \textbf{Too localized}: This comes up when the question pertains to a problem which occurs in very a specific setting and will not benefit future users of the forum. In general this is reserved for e.g. questions about very specific old versions of certain software and libraries.
 \end{itemize}
 
-\noindent Figure \ref{fig:sample} shows a sample of closed question. An important consequence of this categorization of closed questions is that there is nothing essentially wrong with questions that are closed as ``Exact duplicate,'' aside from the fact that they were asked at the wrong point in time.Elimination of duplicate questions from the training data prevents us from confusing the classifier, which is attempting to identify structral commonalities between closed questions.
+\begin{figure}
+\centering
+\fbox{\includegraphics[width=4in,height=3.5in]{images/example_label.pdf}}
+\caption{Sample closed question}
+\label{fig:sample}
+\end{figure}
 
-\noindent Currently, closing questions is a manual process that
+ Figure \ref{fig:sample} shows a sample of closed question. An important consequence of this categorization of closed questions is that there is nothing essentially wrong with questions that are closed as ``Exact duplicate,'' aside from the fact that they were asked at the wrong point in time. Elimination of duplicate questions from the training data prevents us from confusing the classifier, which is attempting to identify structral commonalities between closed questions.
+
+ Currently, closing questions is a manual process that
 depends on the StackOverflow moderators paying close attention to every
-question being asked. Closed questions are also not easy to spot:
+question being asked. Closed questions also suffer from a class imbalance problem:
 Stackoverflow estimates that only 6\% of its questions are closed each
 year.
 
-\noindent In our project, we solve the problem of detecting StackOverflow
+ In our project, we address the problem of detecting StackOverflow
 questions that should be closed.  Using data gathered directly from
-StackOverflow and various machine learning techniques, we train
-algorithms to perform this detection automatically.
+StackOverflow and various machine learning techniques, we train several classifiers to perform this detection automatically.
 
 \section{Data set}
-In our initial work, we used a data set collected using
+In our initial work, we use a data set collected using
 Stackoverflow's \emph{StackExchange Data Explorer}
 \cite{website:stackexchange}. This online tool
 allows users to query raw data directly from
@@ -95,11 +90,10 @@ questions that had been closed (55MB) and 50,000 that were still open as of
 query issue date (75MB).
 
 The data was formatted as CSV files and contained the following
-fields: Question Id, PostTypeId, AcceptedAnswerId, ParentId,
-CreationDate, Score, ViewCount, Body, OwnerUserId, LastEditorUserId,
-LastEditorDisplayName, LastEditDate, LastActivityData, Title, Tags,
-AnswerCount, CommentCount, FavoriteCount, ClosedDate and
-CommunityOwnedDate. Of these fields, the fields that we worked with
+fields: \emph{Question Id}, \emph{PostTypeId}, \emph{AcceptedAnswerId}, \emph{ParentId},
+\emph{CreationDate}, \emph{Score}, \emph{ViewCount}, \emph{Body}, \emph{OwnerUserId}, \emph{LastEditorUserId}, \emph{LastEditorDisplayName}, \emph{LastEditDate}, \emph{LastActivityData}, \emph{Title}, \emph{Tags},
+\emph{AnswerCount}, \emph{CommentCount}, \emph{FavoriteCount}, \emph{ClosedDate} and
+\emph{CommunityOwnedDate}. Of these fields, the fields that we worked with
 were in our initial testing were:
 
 \begin{enumerate}
@@ -113,75 +107,57 @@ competition for predicting closed questions on \emph{Stackoverflow}
 \cite{website:kaggle}. The competition materials included larger data sets: a
 sample train set (133MB) and a larger train set (3.5G).  These data
 files were also formatted as CSV files however included different
-question fields: PostId, PostCreationDate, OwnerUserId,
-OwnerCreationDate, ReutationAtPostCreation,
-OwnerUndeletedAnswerCountAtPostTime, Title, BodyMarkdown, Tag1, Tag2,
-Tag3, Tag4, Tag5, PostClosedDate and OpenStatus.
+question fields: \emph{PostId}, \emph{PostCreationDate}, \emph{OwnerUserId},
+\emph{OwnerCreationDate}, \emph{ReutationAtPostCreation},
+\emph{OwnerUndeletedAnswerCountAtPostTime}, \emph{Title}, \emph{BodyMarkdown}, \emph{Tag1}, \emph{Tag2},
+\emph{Tag3}, \emph{Tag4}, \emph{Tag5}, \emph{PostClosedDate} and \emph{OpenStatus}.
 
 \subsection{Pre-processing}
 To get the data in workable form, a number of pre-processing steps
-were required. First, the ``body'' field, which contained the text of
+were required. First, the \emph{Body} field, which contained the text of
 each question, was formatted as HTML and had to be
 cleaned (i.e. HTML tags stripped). Additionally, images and code were
-removed.  We had to remove code because it is highly variable
-(variables always have different names) and it contains a number of
-strange characters and formatting.
+removed. Code presents several challenges: function and variable names are usually not meaningful, and the special symbols are hard to tokenize. The combination of these factors causes an explosion in the size of the vocabulary, as well as adding little more than noise to the data. However, the presence or absence of a given tag is usually an important feature (code examples or block quotations are an indication that the author put some time into the question). To capture this, we keep track of a list of tags found to use as features for our classifier.
 
-Additionally, there were a few components of a question whose presence
-usually indicated that the question would be closed.  For example, the
-body of a question can include a \begin{verbatim}
-  <strong> \end{verbatim} tag which indicates that a Stackoverflow
-moderator (who have the power to close posts) has commented on the
-question. These tags showed a large positive correlation to closed
-questions and thus, needed to be removed. Similarly, all ``Possible
-duplicate'', ``Closed'', or other moderator edits to a question, needed to be
-removed (as clearly ).  Finally, any urls, which usually hyperlinked to a similar
-question on Stackoverflow, were removed.
+An additional challenge that we faced was that the Data Explorer does not give us access to the original text of a question, only the most recent version, which includes moderator edits. This is obviously a problem because moderator edits are highly correlated to ``Closed'' status, and using them as features would defeat the purpose of building a classifier to automatically detect such questions. We used several heuristics to detect such edits. Finally, any urls, which often indicate a hyperlink to a similar
+question on Stackoverflow, were removed. Our complete list of preprocessing steps:
 
-After being cleaned, the text of each question was tokenized.
+\begin{itemize}
+\item Remove \htmltag{img} tags
+\item Blah blah
+\end{itemize}
+
+After being cleaned, the text of each question was tokenized using the Stanford NLP tokenizer.
 
 \subsection{Features}
 
-For each question, two categories of features were extracted and used
-for training: features extracted from the body of the question and
-features extracted concerning the metadata of that particular
-question. As metadata features, the following fields were extracted:
+For each question, we extract two categories of features: one set of features is extracted from the body of the question and the other from the metadata. Metadata features are annotated with a specific tag (e.g. ``#TAG#'') to prevent them from overlapping with vocabulary words when added to the feature vector. The metadata features:
 
 \begin{itemize}
-  \item Bucketed question length (in characters); a binary feature
-    taking the value '1' if the questions has more than 1000 characters
-  \item Question tags; converted to a list of strings and concatenated
-    onto each feature vector
+  \item \textbf{Bucketed question length}: a collection of binary features
+    taking the value '1' if the number of characters in a question falls in a certain range.
+  \item \textbf{Question tags}: we add each question tag (such as ``Java''), as well as conjunctions of tags and vocabulary words (these are useful to detect off-topic questions).
 \end{itemize}
 
 Before extracting features from question bodies, first, each question
-body was down-cased and tokenized. Then, the count of each unigram, bigram and
-trigram, per question, was added to each feature vector. Finally, the
-cross product of all tags and distinct unigrams, per question, was
-added to each feature vector.  Using both the metadata and ngram
-features, each feature vector was on the order of 2.5 million features
-long.
+body was down-cased and tokenized. Then, we added a binary feature for the presence of each unigram in the question body. We tried using bigram and trigram features, and while our approach was able to scale to an impressive domain size of $\rangle$2.5 million features, these did not add any noticeable improvement in performance. Using the metadata, unigram, and tag-unigram conjunction features, we had a domain size of around 900K features. 
 
 \section{Software}
 
-To facilitate writing code and expediting experimentation, we made
-extensive use of third party software. In the pre-processing stage, we
+We made extensive use of third party software. In the pre-processing stage, we
 used two different libraries.  First, to parse the CSV files
 collected, we used a CSV parser called SuperCSV, written in Java
 \cite{website:supercsv}. In addition, to tokenize the question bodies,
 we made use of the Stanford NLP Library, also written in Java
 \cite{stanfordnlp}.
 
-To facilitate experimentation with various classifiers, we used the
-FACTORIE library, written in Scala, that is developed at UMass
-Amherst.  This library provides implementations of a variety of
-textual pre-processing functions and machine learning classifiers
-\cite{mccallum09:factorie:}.
+To experiment with various classifiers, learning approaches, and feature engineering, we used the
+FACTORIE library \cite{mccallum09:factorie:}, written in Scala, that is developed at UMass Amherst.  This library provides implementations of a variety of textual pre-processing functions, classifiers, graphical models, and learning algorithms. Additionally, two of the authors are committers to this library, which made it easy to use, optimize, and fix bugs found in the code. In fact, one of the authors was largely responsible for the implementation of the classifiers and learning algorithms (such as AdaGrad) that we used in this project.
 
 \section{Methods}
 \begin{itemize}
 \item using factorie facilities for storing instances, trimming domains, learning classifiers, judging accuracy, info gain, etc. Need sparse vectors cause lots of data. pretty fast sgd implementations
-\item Use information gain to see suspicious features
+\item \textbf{Use information gain to find suspicious features}
 \end{itemize}
 
 \section{Results}
