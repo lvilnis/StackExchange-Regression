@@ -135,12 +135,14 @@ For each question, we extract two categories of features: one set of features is
 
 \begin{itemize}
   \item \textbf{Bucketed question length}: a collection of binary features
-    taking the value '1' if the number of characters in a question falls in a certain range.
+    taking the value $1$ if the number of characters in a question falls in a certain range.
   \item \textbf{Question tags}: we add each question tag (such as ``Java''), as well as conjunctions of tags and vocabulary words (these are useful to detect off-topic questions).
 \end{itemize}
 
 Before extracting features from question bodies, first, each question
 body was down-cased and tokenized. Then, we added a binary feature for the presence of each unigram in the question body. We tried using bigram and trigram features, and while our approach was able to scale to an impressive domain size of $\rangle$2.5 million features, these did not add any noticeable improvement in performance. Using the metadata, unigram, and tag-unigram conjunction features, we had a domain size of around 900K features. 
+
+Features which occured only once in the corpus were eliminated.
 
 \section{Software}
 
@@ -154,11 +156,28 @@ we made use of the Stanford NLP Library, also written in Java
 To experiment with various classifiers, learning approaches, and feature engineering, we used the
 FACTORIE library \cite{mccallum09:factorie:}, written in Scala, that is developed at UMass Amherst.  This library provides implementations of a variety of textual pre-processing functions, classifiers, graphical models, and learning algorithms. Additionally, two of the authors are committers to this library, which made it easy to use, optimize, and fix bugs found in the code. In fact, one of the authors was largely responsible for the implementation of the classifiers and learning algorithms (such as AdaGrad) that we used in this project.
 
-\section{Methods}
-\begin{itemize}
-\item using factorie facilities for storing instances, trimming domains, learning classifiers, judging accuracy, info gain, etc. Need sparse vectors cause lots of data. pretty fast sgd implementations
-\item \textbf{Use information gain to find suspicious features}
+\section{Machine learning methods}
+\subsection*{Classifiers.}We tested 5 different classifiers on our data. Before we added more sophisticated features to our data, we found that Naive Bayes gave the best performance, but as we added features the log loss trained with the AdaGrad algorithm pulled ahead of the other strategies.
+ \begin{itemize}
+\item \textbf{Naive bayes}: The Naive Bayes classifier counts up occurences of features in each class, weighted by number of instances in the class. The weights learned represent basically the sum of all instances in the class, and new classifications are made by picking the class with the highest dot product. This extremely simple method gives a high-bias, low-variance classifier which can be effective for data sets where overfitting is a strong possibility, and as such worked surprisingly well on our data. 
+\item \textbf{L2-regularized Logistic regression}: We used FACTORIE's logistic regression implementation, which trains a log loss and l2-regularizer using LBFGS. Logistic regression attempts to learn a probabilistic classifier which makes the minimal amount of assumptions about the data. For example, there are no assumptions of independence between features. 
+\item \textbf{Liblinear SVM}: We used FACTORIE's implementation of Liblinear \cite{chang:08a}, a fast dual coordinate descent algorithm for learning SVM's with linear kernels. We used the L2 regularized, L2 loss version.
+\item \textbf{AdaGrad with hinge loss and log loss}: We also tested two online algorithms against the other exact solvers, training hinge loss (SVM) and log loss (logistic regression) using the AdaGrad algoritm \cite{duchi:11a}. These loss functions were unregularized (did not include a penalty for the weights), but AdaGrad includes variable learning rates for each feature which has the effect of softly regularizing the weights. We found the online algorithms gave better performance over the exact solvers (the online strategy of regret minimization helps to prevent over-fitting), and made training times orders of magnitude faster.
 \end{itemize}
+\subsection*{Information gain.}We found \emph{information gain} to be a useful tool for cleaning the data of moderator edits and other features that proxy the ground truth. The information gain of a feature is a measure of the benefit of that feature for binary classification. We split the instances according to those possessing a feature and those lacking it, and measure the mutual information between the two resulting instance label distributions. If the two distributions are very dissimilar (i.e. lots of closed questions in one group, few in the other, compared to the original one), then that feature does a good job of distinguishing the two classes and has a high information gain. Features with extremely high information gain are probably too good to be true and the result of common patterns in moderator edits - we need to remove those features in our pre-processing. This is the formula for information gain:
+\begin{equation*}
+\begin{split}
+stuff
+\end{split}
+\end{equation*}
+\subsection*{AdaGrad.}We used the AdaGrad \cite{duchi:11a} stochastic (sub)gradient descent algorithm to train our classifiers. AdaGrad (which we used with the Composite Mirror Descent update \cite{duchi:10a}) does proximal mirror descent with a squared Mahalanobis distance (under an adaptively estimated covariance matrix) as the proximal function. Keeping the covariance matrix diagonal for tractability, this is effectively a set of per-coordinate learning rates which are adjusted according to how much gradient AdaGrad has seen for a given feature. The form of AdaGrad which we used for this project has the following update equation:
+\begin{equation*}
+\begin{split}
+G_i \leftarrow G_i + \partial_i^2\\
+w_i \leftarrow w_i + \alpha \cdot \frac{1}{\rho + \sqrt{G_i}} \cdot \partial_i\\
+\end{split}
+\end{equation*}
+Where $\textbf{G}$ is a vector of learning rates, $\textbf{w}$ is a vector of weights to be learned, $\alpha$ is the a learning rate, $\rho$ is a ridge for good conditioning, and $\partial$ is the (sub)gradient of the loss function.
 
 \section{Results}
 \begin{itemize}
@@ -190,7 +209,7 @@ FACTORIE library \cite{mccallum09:factorie:}, written in Scala, that is develope
 
 \section{Future directions}
 \begin{itemize}
-\item Use kaggle data set (which we have); 70 million training instances, 80 thousand test instances
+\item Use kaggle data set (which we have)
 \item We’ll need to split up the data (because it’s big) to be able to use it; we’re planning to learn the weights of our linear classifier using stochastic gradient descent (blocked-adagrad)
 \item Add more features (TFIDF, other NLP features), heuristic of adding number of rare words from Alex’s paper
 \item Try out new classifiers - random forests
