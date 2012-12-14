@@ -14,33 +14,29 @@
 
 \section{Problem Statement}
 
-``What is the best programming language?'' There are too many
-answers to this question and very little consensus among programmers
-as well. The problem being the question is too broad and the answers
-will almost never satisfy all subgroups. But, how do we train a
-classifier to predict if a question is too broad? In general, how can a
-classifier detect if a question is relevant given some target
-audience. In this project we are interested in predicting if a
-question asked on Stackoverflow (target audience) will be closed (not
-relevant to this community of users).
+``What is the best programming language?'' There are numerous answers
+to this question but very little consensus among programmers as to the
+correct answer. While this question is interesting and can be fun to
+discuss, it will only clutter a forum designed for objective questions
+answering. There are many other questions that have no place in
+objective, topic-specific forums (e.g. question unrelated to the
+subject matter discussed on the form). However, given a specific
+question answering forum, it is quite difficult to discover content
+that doesn't belong.
 
-\noindent Stackoverflow \cite{website:stackoverflow} is an online
-forum in which any user may ask software and programming related
-questions. These questions are subsequently answered by other users
-who participate in the forum. To keep the forum interesting and
-relevant, the website moderators (and a handful of influential users)
-have the ability to \emph{close} questions. After a question is
-closed, users cannot submit answers to it (and it also is very
-unlikely to top any search over questions).
-
-Although Stackoverflow has explicit policies regarding when a question
-may be closed, these policies are largely subjective. website policies Now, there are instances when questions posed by
-users do not meet the requirements set by the moderators and hence are
-`closed'. Stackoverflow predicts that anually 6\% of its questions are
-closed. If only the users knew well ahead of time that the chances of
-their question being closed is high, then, the user could rephrase or
-research the question before actually posting the question on the
-forum.
+\noindent Stackoverflow \cite{website:stackoverflow}, a web forum
+designed to host objective software and programming related question,
+has this exact problem. On StackOverflow, any user may ask any
+question; those questions are subsequently answered by other users on
+the website. StackOverflow has little infrastructure to restrict users
+from posting irrelevant and/or subjective questions on the site. To
+keep the forum clean and interesting, the website moderators (and a
+handful of influential users) have the ability to \emph{close} these
+inappropriate questions. After a question is closed, it acquires a
+closed tag, users cannot submit answers to it and it also is very
+unlikely to top any search results over questions. While the question
+is still reachable, these measures effectively remove the question
+from public discussion.
 
 \begin{figure}
 \centering
@@ -49,18 +45,31 @@ forum.
 \label{fig:sample}
 \end{figure}
 
-\noindent According to StackOverflow's policies, a question may be
-closed if it falls into one of these five categories:
+\noindent Although StackOverflow has explicit policies regarding when
+a question may be closed, these policies are largely
+subjective. According to StackOverflow, a question may be closed if it
+falls into one of these five categories:
 
 \begin{itemize}
 \item \textbf{Exact duplicate}: This category describes questions which may be reasonable and on-topic for StackOverflow, but have already appeared on the site.
 \item \textbf{Off-topic}: Since StackOverflow is meant for software and programming related questions, questions that relate to domain-specific software packages or otherwise require the attention of specialists not likely to be found on StackOverflow are off-topic. An example of a question closed as off-topic is ``From the Brain imaging toolbox, AFNI, I see lots of activity in the Dorso Lateral pre-frontal cortex, does it mean that part of the brain is involved in activity A?''
 \item \textbf{Not constructive}: Questions are closed as ``Not constructive'' when they solicit opinion, debate, arguments, polling, or extended discussion. Our opening question, ``What is the best programming language?'' is a common example.
 \item \textbf{Not a real question}: When questions are ambiguous, vague, incomplete, overly broad or rhetorical. e.g. ``Sort HTML attributes with JavaScript'' - this user does not reveal the problem they encountered when attempting to perform this task.
-\item \textbf{Too localized}: This comes up when the question pertains to a problem which occurs in very a specific setting and will not benefit future users of the forum. In general this is reserved for e.g. questions about very specific old versions of certain software and libraries. 
+\item \textbf{Too localized}: This comes up when the question pertains to a problem which occurs in very a specific setting and will not benefit future users of the forum. In general this is reserved for e.g. questions about very specific old versions of certain software and libraries.
 \end{itemize}
 
 \noindent Figure \ref{fig:sample} shows a sample of closed question. An important consequence of this categorization of closed questions is that there is nothing essentially wrong with questions that are closed as ``Exact duplicate,'' aside from the fact that they were asked at the wrong point in time.Elimination of duplicate questions from the training data prevents us from confusing the classifier, which is attempting to identify structral commonalities between closed questions.
+
+\noindent Currently, closing questions is a manual process that
+depends on the StackOverflow moderators paying close attention to every
+question being asked. Closed questions are also not easy to spot:
+Stackoverflow estimates that only 6\% of its questions are closed each
+year.
+
+\noindent In our project, we solve the problem of detecting StackOverflow
+questions that should be closed.  Using data gathered directly from
+StackOverflow and various machine learning techniques, we train
+algorithms to perform this detection automatically.
 
 \section{Data set}
 In our initial work, we used a data set collected using
