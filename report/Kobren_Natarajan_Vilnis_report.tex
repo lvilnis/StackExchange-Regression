@@ -140,7 +140,7 @@ For each question, we extract two categories of features: one set of features is
 \end{itemize}
 
 Before extracting features from question bodies, first, each question
-body was down-cased and tokenized. Then, we added a binary feature for the presence of each unigram in the question body. We tried using bigram and trigram features, and while our approach was able to scale to an impressive domain size of $\gt$2.5 million features, these did not add any noticeable improvement in performance. Using the metadata, unigram, and tag-unigram conjunction features, we had a domain size of around 900K features. 
+body was down-cased and tokenized. Then, we added a binary feature for the presence of each unigram in the question body. We tried using bigram and trigram features, and while our approach was able to scale to an impressive domain size of $\gt$2.5 million features, these did not add any noticeable improvement in performance. Using the metadata, unigram, and tag-unigram conjunction features, we had a domain size of around 900K features.
 
 Features which occured only once in the corpus were eliminated.
 
@@ -159,8 +159,8 @@ FACTORIE library \cite{mccallum09:factorie:}, written in Scala, that is develope
 \section{Machine learning methods}
 \subsection*{Classifiers.}We tested 5 different classifiers on our data. Before we added more sophisticated features to our data, we found that Naive Bayes gave the best performance, but as we added features the log loss trained with the AdaGrad algorithm pulled ahead of the other strategies.
  \begin{itemize}
-\item \textbf{Naive bayes}: The Naive Bayes classifier counts up occurences of features in each class, weighted by number of instances in the class. The weights learned represent basically the sum of all instances in the class, and new classifications are made by picking the class with the highest dot product. This extremely simple method gives a high-bias, low-variance classifier which can be effective for data sets where overfitting is a strong possibility, and as such worked surprisingly well on our data. 
-\item \textbf{L2-regularized Logistic regression}: We used FACTORIE's logistic regression implementation, which trains a log loss and l2-regularizer using LBFGS. Logistic regression attempts to learn a probabilistic classifier which makes the minimal amount of assumptions about the data. For example, there are no assumptions of independence between features. 
+\item \textbf{Naive bayes}: The Naive Bayes classifier counts up occurences of features in each class, weighted by number of instances in the class. The weights learned represent basically the sum of all instances in the class, and new classifications are made by picking the class with the highest dot product. This extremely simple method gives a high-bias, low-variance classifier which can be effective for data sets where overfitting is a strong possibility, and as such worked surprisingly well on our data.
+\item \textbf{L2-regularized Logistic regression}: We used FACTORIE's logistic regression implementation, which trains a log loss and l2-regularizer using LBFGS. Logistic regression attempts to learn a probabilistic classifier which makes the minimal amount of assumptions about the data. For example, there are no assumptions of independence between features.
 \item \textbf{Liblinear SVM}: We used FACTORIE's implementation of Liblinear \cite{chang:08a}, a fast dual coordinate descent algorithm for learning SVM's with linear kernels. We used the L2 regularized, L2 loss version.
 \item \textbf{AdaGrad with hinge loss and log loss}: We also tested two online algorithms against the other exact solvers, training hinge loss (SVM) and log loss (logistic regression) using the AdaGrad algoritm \cite{duchi:11a}. These loss functions were unregularized (did not include a penalty for the weights), but AdaGrad includes variable learning rates for each feature which has the effect of softly regularizing the weights. We found the online algorithms gave better performance over the exact solvers (the online strategy of regret minimization helps to prevent over-fitting), and made training times orders of magnitude faster.
 \end{itemize}
@@ -210,6 +210,14 @@ Where $\textbf{G}$ is a vector of learning rates, $\textbf{w}$ is a vector of we
 \end{itemize}
 
 \section{Future directions}
+Though our project was largely successful, there are many
+opportunities for extending the work.  As a first step, we're
+interested repeating the same experiments with a much larger data
+set. With more data, there is a chance that we will get better
+classification performance.  However, handling a larger data set poses
+serious engineering problems.  For example, the entire
+StackOverflow data set is
+
 \begin{itemize}
 \item Use kaggle data set (which we have)
 \item We’ll need to split up the data (because it’s big) to be able to use it; we’re planning to learn the weights of our linear classifier using stochastic gradient descent (blocked-adagrad)
