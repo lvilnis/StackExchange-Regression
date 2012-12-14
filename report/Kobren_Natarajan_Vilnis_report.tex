@@ -41,18 +41,18 @@ actually posting the question on the forum.
 \label{fig:sample}
 \end{figure}
 
-\noindent According to Stackoverflow's policies, a question maybe
-closed if it falls into one of the five categories listed below:
+\noindent According to StackOverflow's policies, a question may be
+closed if it falls into one of these five categories:
 
 \begin{itemize}
-\item \textbf{Exact duplicate}: This is exactly as it phrased. If a similar question has already been asked in the past then the question is not novel in any way
-\item \textbf{Off-topic}: Like we mentioned above stackoverflow is a forum for software and programming related questions and so off-topic questions are most likely closed. e.g. From the Brain imaging toolbox, AFNI, I see lots of activity in the Dorso Lateral pre-frontal cortex, does it mean that part of the brain is involved in activity A?
-\item \textbf{Not constructive}: Questions get closed under this category when they solicit opinion, debate, arguments, polling, or extended discussion. Our opening question on "What is your favorite programming language?" is a good example
-\item \textbf{Note a real question}: When questions are ambiguous, vague, incomplete, overly broad or rhetorical. e.g. `Sort HTML attributes with JavaScript' - this user does not reveal problem encountered when attempting to perform this task
-\item \textbf{Too localized}: If the question asked pertains to one specific problem which occurs in a specific setting and will not benefit future users of the forum. e.g. a question pertaining to an obsolete java query
+\item \textbf{Exact duplicate}: This category describes questions which may be reasonable and on-topic for StackOverflow, but have already appeared on the site.
+\item \textbf{Off-topic}: Since StackOverflow is meant for software and programming related questions, questions that relate to domain-specific software packages or otherwise require the attention of specialists not likely to be found on StackOverflow are off-topic. An example of a question closed as off-topic is ``From the Brain imaging toolbox, AFNI, I see lots of activity in the Dorso Lateral pre-frontal cortex, does it mean that part of the brain is involved in activity A?''
+\item \textbf{Not constructive}: Questions are closed as ``Not constructive'' when they solicit opinion, debate, arguments, polling, or extended discussion. Our opening question, ``What is the best programming language?'' is a common example.
+\item \textbf{Not a real question}: When questions are ambiguous, vague, incomplete, overly broad or rhetorical. e.g. ``Sort HTML attributes with JavaScript'' - this user does not reveal the problem they encountered when attempting to perform this task.
+\item \textbf{Too localized}: This comes up when the question pertains to a problem which occurs in very a specific setting and will not benefit future users of the forum. In general this is reserved for e.g. questions about very specific old versions of certain software and libraries. 
 \end{itemize}
 
-\noindent Refer to figure \ref{fig:sample} for a sample of closed question. In our data analysis we have deliberately eliminated questions that fall under `Exact duplicate' category. The reason being that these are valid questions but they have already been asked before. Elimination of duplicate questions is  also less likely to confuse the classifier when attempting to tease apart closed from open questions based on structral information from questions.
+\noindent Figure \ref{fig:sample} shows a sample of closed question. An important consequence of this categorization of closed questions is that there is nothing essentially wrong with questions that are closed as ``Exact duplicate,'' aside from the fact that they were asked at the wrong point in time.Elimination of duplicate questions prevents us from confusing the classifier which is attempting to identify structral commonalities between closed questions.
 
 \section{Data set}
 In our initial work, we used a data set collected using
