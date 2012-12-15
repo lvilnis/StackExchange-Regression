@@ -5,7 +5,7 @@
 \newcommand{\htmltag}{$\lt${htmltag}$\gt$}
 \setlength{\parskip}{5pt}
 
-\title{Project Report - Classification of questions on stackoverflow\\ Machine Learning, Fall 2012}
+\title{Project Report - Classification of Questions on Stackoverflow\\ Machine Learning, Fall 2012}
 \author{Luke Vilnis, Annamalai Natarajan, Ariel Kobren}
 
 \begin{document}
@@ -74,11 +74,29 @@ allows users to query raw data directly from
 Stackoverflow. Specifically, we issued the following commands:
 
 \begin{verbatim}
-SELECT * FROM posts WHERE PostTypeId=1 AND CreationDate > '20110813'
-    AND ClosedDate > '20110813';
+SELECT
+  Posts.*,
+  Users.Reputation
+FROM Posts
+  INNER JOIN Users ON Users.Id=Posts.OwnerUserId
+WHERE
+  Posts.PostTypeId=1 AND
+  Posts.CreationDate > '20120801' AND
+  Posts.ClosedDate IS NULL
+ORDER BY
+  Posts.CreationDate
 
-SELECT * FROM posts Where PostTypeId=1 AND CreatedDate > '20110813'
-    AND ClosedDate IS NULL;
+SELECT
+  Posts.*,
+  Users.Reputation
+FROM Posts
+  INNER JOIN Users ON Users.Id=Posts.OwnerUserId
+WHERE
+  Posts.PostTypeId=1 AND
+  Posts.CreationDate > '20120801' AND
+  Posts.ClosedDate > '20100101'
+ORDER BY
+  Posts.CreationDate
 \end{verbatim}
 
 These two queries aim to retrieve all questions (PostTypeId=1 represents a question, as opposed to a comment or an answer) posted on StackOverflow on or after August 13$^{\textrm{th}}$, 2011 that: 1)
@@ -90,28 +108,25 @@ questions that had been closed (55MB) and 50,000 that were still open as of
 query issue date (75MB).
 
 The data was formatted as CSV files and contained the following
-fields: \emph{Question Id}, \emph{PostTypeId}, \emph{AcceptedAnswerId}, \emph{ParentId},
-\emph{CreationDate}, \emph{Score}, \emph{ViewCount}, \emph{Body}, \emph{OwnerUserId}, \emph{LastEditorUserId}, \emph{LastEditorDisplayName}, \emph{LastEditDate}, \emph{LastActivityData}, \emph{Title}, \emph{Tags},
-\emph{AnswerCount}, \emph{CommentCount}, \emph{FavoriteCount}, \emph{ClosedDate} and
-\emph{CommunityOwnedDate}. Of these fields, the fields that we worked with
-were in our initial testing were:
+fields: \emph{Question Id}, \emph{PostTypeId},
+\emph{AcceptedAnswerId}, \emph{ParentId}, \emph{CreationDate},
+\emph{Score}, \emph{ViewCount}, \emph{Body}, \emph{OwnerUserId},
+\emph{LastEditorUserId}, \emph{LastEditorDisplayName},
+\emph{LastEditDate}, \emph{LastActivityData}, \emph{Title},
+\emph{Tags}, \emph{AnswerCount}, \emph{CommentCount},
+\emph{FavoriteCount}, \emph{ClosedDate}, \emph{CommunityOwnedDate} and
+\emph{Reputation}. Of these fields, the fields that we worked
+with were in our initial testing were:
 
 \begin{enumerate}
   \item Body - the raw text of the question
   \item Tags - user provided question categories (e.g. Java,
     algorithms, etc.)
-  \item ClosedDate - a non-null value here indicates that the post was closed.
+  \item ClosedDate - a non-null value here indicates that the post was
+    closed.
+    \item Reputation - the StackOverflow reputation of the user who
+      asked the question
 \end{enumerate}
-
-Midway through our experiments, we discovered a \emph{Kaggle}
-competition for predicting closed questions on \emph{Stackoverflow}
-\cite{website:kaggle}. The competition materials included larger data sets: a
-sample train set (133MB) and a larger train set (3.5G).  These data
-files were also formatted as CSV files however included different
-question fields: \emph{PostId}, \emph{PostCreationDate}, \emph{OwnerUserId},
-\emph{OwnerCreationDate}, \emph{ReutationAtPostCreation},
-\emph{OwnerUndeletedAnswerCountAtPostTime}, \emph{Title}, \emph{BodyMarkdown}, \emph{Tag1}, \emph{Tag2},
-\emph{Tag3}, \emph{Tag4}, \emph{Tag5}, \emph{PostClosedDate} and \emph{OpenStatus}.
 
 \subsection{Pre-processing}
 To get the data in workable form, a number of pre-processing steps
@@ -120,30 +135,90 @@ each question, was formatted as HTML and had to be
 cleaned (i.e. HTML tags stripped). Additionally, images and code were
 removed. Code presents several challenges: function and variable names are usually not meaningful, and the special symbols are hard to tokenize. The combination of these factors causes an explosion in the size of the vocabulary, as well as adding little more than noise to the data. However, the presence or absence of a given tag is usually an important feature (code examples or block quotations are an indication that the author put some time into the question). To capture this, we keep track of a list of tags found to use as features for our classifier.
 
-An additional challenge that we faced was that the Data Explorer does not give us access to the original text of a question, only the most recent version, which includes moderator edits. This is obviously a problem because moderator edits are highly correlated to ``Closed'' status, and using them as features would defeat the purpose of building a classifier to automatically detect such questions. We used several heuristics to detect such edits. Finally, any urls, which often indicate a hyperlink to a similar
-question on Stackoverflow, were removed. Our complete list of preprocessing steps:
+An additional challenge that we faced was that the Data Explorer does
+not give us access to the original text of a question, only the most
+recent version, which includes moderator edits. This is obviously a
+problem because moderator edits are highly correlated to ``Closed''
+status, and using them as features would defeat the purpose of
+building a classifier to automatically detect such questions. We used
+several heuristics to detect such edits. Finally, any urls, which
+often indicate a hyperlink to a similar question on Stackoverflow,
+were removed.
+
+Finally, we had to remove questions that were closed because they were
+found to be duplicates of other questions on StackOverflow.  The
+reason to do this is that questions being closed because they are
+duplicates are generally \emph{good} questions that, in isolation, are
+appropriate for StackOverflow. If we included these questions in the
+data set, the classifier would get misinformation about what
+constitutes a question deserving of being closed. In a real-world
+system designed to automatically predict whether a question will be
+closed, we suggest that first, the question be analyzed to determine
+whether it is a duplicate and then, be analyzed by a system like ours.
+
+Our complete list of preprocessing steps:
 
 \begin{itemize}
-\item Remove \htmltag{img} tags
-\item Blah blah
+\item Replace \{img\} tags with a the feature ``\#IMG\#''
+\item Replace code with the tag ``\#CODE\#''
+\item Replace URLs and add the feature ``\#URL\#''
+\item Replace blockquotes and add the feature ``\#BLOCKQUOTE\#''
+\item Remove indications of moderator comments
+\item Remove duplicate questions
 \end{itemize}
 
 After being cleaned, the text of each question was tokenized using the Stanford NLP tokenizer.
 
 \subsection{Features}
 
-For each question, we extract two categories of features: one set of features is extracted from the body of the question and the other from the metadata. Metadata features are annotated with a specific tag (e.g. ``#TAG#'') to prevent them from overlapping with vocabulary words when added to the feature vector. The metadata features:
+For each question, we extract two categories of features: one set of
+features is extracted from the body of the question and the other from
+the metadata. Metadata features are annotated with a specific tag
+(e.g. ``\#TAG\#'') to prevent them from overlapping with vocabulary
+words when added to the feature vector. The metadata features:
 
 \begin{itemize}
-  \item \textbf{Bucketed question length}: a collection of binary features
-    taking the value $1$ if the number of characters in a question falls in a certain range.
-  \item \textbf{Question tags}: we add each question tag (such as ``Java''), as well as conjunctions of tags and vocabulary words (these are useful to detect off-topic questions).
+  \item \textbf{Bucketed question length}: a collection of binary
+    features taking the value $1$ if the number of characters in a
+    question falls in a certain range.
+  \item \textbf{Question tags}: we add each question tag (such as
+    ``Java''), as well as conjunctions of tags and vocabulary words
+    (these are useful to detect off-topic questions).
+  \item \textbf{Title}: we add the unigrams contained in the question
+    title to the respective feature vector.
+  \item \textbf{Replacement Tags}: for each question, we strip out
+    URLs, code, images and blockquotes and indicate their presence
+    with a binary feature (e.g ``\#CODE\#'').
+  \item \textbf{Reputation}: we bin the user reliability and add it as
+    a feature.
 \end{itemize}
 
 Before extracting features from question bodies, first, each question
-body was down-cased and tokenized. Then, we added a binary feature for the presence of each unigram in the question body. We tried using bigram and trigram features, and while our approach was able to scale to an impressive domain size of $\gt$2.5 million features, these did not add any noticeable improvement in performance. Using the metadata, unigram, and tag-unigram conjunction features, we had a domain size of around 900K features.
+body was down-cased and tokenized. Then, we added the following
+features:
 
-Features which occured only once in the corpus were eliminated.
+\begin{itemize}
+  \item \textbf{Unigrams}: we added a binary feature indicating the
+    presence (or absence) of each unigram in our corpus.
+  \item \textbf{Tag/Unigram Features}: we constructed the set of all
+    tag-unigram conjuctions and added a binary feature for the
+    presence of each.  This helps detect question that are off-topic.
+  \item \textbf{Average TF-IDF}: we calculated the normalized TF-IDF
+    \cite{wiki:tfidf} (term frequency inverse document frequency) of
+    each word in each question. We averaged these scores over each
+    question and added them as features. Normalized TF-IDF can be
+    calculated as shown below:
+    \begin{align*}
+            tfidf(t,D) &= tf \cdot idf
+    \end{align*}
+    where:
+    \begin{align*}
+      tf(t,d) &= \frac{frequency(t,d)}{max\{frequency(w,d):w \in d\}}\\
+      idf(t,D) &= \log\frac{|D|}{|\{d \in D : t \in d \}|}\\
+    \end{align*}
+\end{itemize}
+Using all of the features described above, we constructed a set of
+features with domain size of approximately 7.5 million.
 
 \section{Software}
 
@@ -154,11 +229,27 @@ collected, we used a CSV parser called SuperCSV, written in Java
 we made use of the Stanford NLP Library, also written in Java
 \cite{stanfordnlp}.
 
-To experiment with various classifiers, learning approaches, and feature engineering, we used the
-FACTORIE library \cite{mccallum09:factorie:}, written in Scala, that is developed at UMass Amherst.  This library provides implementations of a variety of textual pre-processing functions, classifiers, graphical models, and learning algorithms. Additionally, two of the authors are committers to this library, which made it easy to use, optimize, and fix bugs found in the code. In fact, one of the authors was largely responsible for the implementation of the classifiers and learning algorithms (such as AdaGrad) that we used in this project.
+To experiment with various classifiers, learning approaches, and
+feature engineering, we used the FACTORIE library
+\cite{mccallum09:factorie:}, written in Scala, that is developed at
+UMass Amherst.  This library provides implementations of a variety of
+textual pre-processing functions, classifiers, graphical models, and
+learning algorithms. Additionally, two of the authors are committers
+to this library, which made it easy to use, optimize, and fix bugs
+found in the code. In fact, one of the authors was largely responsible
+for the implementation of the classifiers and learning algorithms
+(such as AdaGrad) that we used in this project.
+
+In addition to third party software, we also wrote a large chunk of
+the experiments ourselves.  The code that we wrote includes all of the
+preprocessing, feature extraction and the code to run our experiments
+with increasing dataset sizes.  All of this code is written in
+Scala. In addition, we also wrote code in Matlab to generate our
+plots.  All of this code is available on Github at:
+https://github.com/lvilnis/StackExchange-Regression.
 
 \section{Machine learning methods}
-\subsection*{Classifiers.}We tested 5 different classifiers on our data. Before we added more sophisticated features to our data, we found that Naive Bayes gave the best performance, but as we added features the log loss trained with the AdaGrad algorithm pulled ahead of the other strategies.
+\subsection*{Classifiers}We tested 5 different classifiers on our data. Before we added more sophisticated features to our data, we found that Naive Bayes gave the best performance, but as we added features the log loss trained with the AdaGrad algorithm pulled ahead of the other strategies.
  \begin{itemize}
 \item \textbf{Naive bayes}: The Naive Bayes classifier counts up occurences of features in each class, weighted by number of instances in the class. The weights learned represent basically the sum of all instances in the class, and new classifications are made by picking the class with the highest dot product. This extremely simple method gives a high-bias, low-variance classifier which can be effective for data sets where overfitting is a strong possibility, and as such worked surprisingly well on our data.
 \item \textbf{L2-regularized Logistic regression}: We used FACTORIE's logistic regression implementation, which trains a log loss and l2-regularizer using LBFGS. Logistic regression attempts to learn a probabilistic classifier which makes the minimal amount of assumptions about the data. For example, there are no assumptions of independence between features.
@@ -173,7 +264,7 @@ InfoGain(f, P(x)) = H(P(x)) - \alpha*H(P(x|f=1)) - (1 - \alpha)*H(P(x|f=0))\\
 \end{equation*}
 Where $f$ is some binary feature, and $\alpha$ is the percentage of examples with the feature present.
 
-\subsection*{AdaGrad.}We used the AdaGrad \cite{duchi:11a} stochastic (sub)gradient descent algorithm to train our classifiers. AdaGrad (which we used with the Composite Mirror Descent update \cite{duchi:10a}) does proximal mirror descent with a squared Mahalanobis distance (under an adaptively estimated covariance matrix) as the proximal function. Keeping the covariance matrix diagonal for tractability, this is effectively a set of per-coordinate learning rates which are adjusted according to how much gradient AdaGrad has seen for a given feature. The form of AdaGrad which we used for this project has the following update equation:
+\subsection*{AdaGrad}We used the AdaGrad \cite{duchi:11a} stochastic (sub)gradient descent algorithm to train our classifiers. AdaGrad (which we used with the Composite Mirror Descent update \cite{duchi:10a}) does proximal mirror descent with a squared Mahalanobis distance (under an adaptively estimated covariance matrix) as the proximal function. Keeping the covariance matrix diagonal for tractability, this is effectively a set of per-coordinate learning rates which are adjusted according to how much gradient AdaGrad has seen for a given feature. The form of AdaGrad which we used for this project has the following update equation:
 \begin{equation*}
 \begin{split}
 G_i &\leftarrow G_i + \partial_i^2\\
@@ -183,12 +274,15 @@ w_i &\leftarrow w_i + \alpha \cdot \frac{1}{\rho + \sqrt{G_i}} \cdot \partial_i\
 Where $\textbf{G}$ is a vector of learning rates, $\textbf{w}$ is a vector of weights to be learned, $\alpha$ is the a learning rate, $\rho$ is a ridge for good conditioning, and $\partial$ is the (sub)gradient of the loss function.
 
 \section{Results}
-\begin{itemize}
-\item 71\% accuracy with logistic regression trained using AdaGrad (not l2 regularized but effectively regularized since its an online learning algorithm). SVM, naive bayes, l2 log reg etc does slightly worse.
-\item Naive bayes was winner until we added cross product
-  features. High bias/low variance does better
-  \item How long did it take run the whole thing?
-\end{itemize}
+In our experiments, we aimed at measuring 2 quantities: 1) over test
+set accuracy and 2) classifier accuracy as a function of the size of
+the train set.  To do this, we split our data set randomly into 70\%
+train and 30\% test.  We trained multiple classifiers on the training
+data and measured their performance on predicting closed questions in
+the test set.  We repeated this experiment 5 times, each time varying
+the size of the overall data set used.  The sizes of our data sets
+(measured in number of instances) were: 40,000, 80,000, 120,000,
+160,000 and 200,000.
 
 \begin{figure}
 \centering
@@ -197,18 +291,27 @@ Where $\textbf{G}$ is a vector of learning rates, $\textbf{w}$ is a vector of we
 \label{fig:results}
 \end{figure}
 
+As predicted, all of our classifiers improve as we increase the number
+of the training instances. However, SVM did not perform as well as
+expected.
+
 \section{Discussion}
 
-\begin{itemize}
-  \item Ngrams didn’t help - need smarter features - we get 100\%
-    almost train set accuracy, so the problem is bad features, not
-    inability to fit. Regularization also doesn’t help much at all
-    (tried manually grid searching l2 lambda). Overfitting is not the
-    problem.
-  \item using information gain to figure out which features were best
-  \item What where the best features? Why were they best?
-  \item What was the best classifier, why?
-\end{itemize}
+\subsection{Train Set Accuracy}
+In almost all of our experiments, the accuracy achieved on the
+training set was near 100\%.  Despite this, our results show our
+accuracy on the held-out test set to be close to 75\%.  We believe
+that the reason for this is that we didn't design features that
+captured the essence of the problem we were trying to solve; that is,
+our features didn't capture the entirety of what leads a question to
+be ``closed.''
+
+\subsection{Unhelpful Features}
+In the process of refining our experiments, we tested the affect of a
+few features that were not eventually included in training because
+they did not improve overall accuracy on the test set. These features
+include: bag of bigrams/trigrams and a bag of unigrams with their
+TF-IDF scores.
 
 \section{Future directions}
 Though our project was largely successful, there are many
@@ -217,7 +320,7 @@ interested repeating the same experiments with a much larger data
 set. With more data, there is a chance that we will get better
 classification performance. However, handling a larger data set poses
 serious engineering problems.  The entire
-StackOverflow data set contains 4.1 million questions - our experiments used only 100,000 (2.4\% of that). 
+StackOverflow data set contains 4.1 million questions - our experiments used only 100,000 (2.4\% of that).
 Additional features could probably improve our performance even more.
 
 We would also like to experiment with more question categories than just closed/open. For example, it would be a useful facility for users and moderators to be able to predict whether or not a certain question was likely to be answered. This could help users determine whether to add bounties to a question (which trade reputation from the asker to the answerer), or to move the question to some other, more domain-specific, StackExchange website. An extension to this would be to predict how long an asker could expect to wait before receiving an answer to their question.
@@ -225,9 +328,20 @@ We would also like to experiment with more question categories than just closed/
 We would also like to try some nonlinear classifiers, such as decision trees and random forests. We had trouble getting these to train in reasonable time on our data set, but this is probably more the fault of the inefficient implementation (written by one of the authors) than the algorithms themselves.
 
 \section{Conclusion}
+In this project, we attempted to train a classifier to predict whether
+or not a given question would be closed on StackOverflow. Before
+training, we needed to significantly pre-process the data. We
+extracted multiple features from both the metadata and body of each
+question and used them to train multiple classifiers for closed
+question prediction. Among these trained classifiers, logistic
+regression performed best with an overall accuracy of approximately
+74\%. Moreover, we demonstrated that classifier performance
+dramatically increases with the size of the training set.  While there
+are many opportunities to extend this project, out project establishes
+a foundation for ``appropriateness'' prediction of questions on online
+forums.
 
-Crushed it.
-
+\pagebreak
 \bibliography{bib}{}
 \bibliographystyle{plain}
 
