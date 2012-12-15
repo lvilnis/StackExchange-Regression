@@ -16,7 +16,7 @@ import collection.mutable
 
 object Test {
 
-  val col_old = Map(
+  val col = Map(
     "Id" -> 1,
     "PostTypeId" -> 2,
     "AcceptedAnswerId" -> 3,
@@ -37,24 +37,25 @@ object Test {
     "CommentCount" -> 18,
     "FavoriteCount" -> 19,
     "ClosedDate" -> 20,
-    "CommunityOwnedDate" -> 21)
+    "CommunityOwnedDate" -> 21,
+    "Reputation" -> 22)
 
-  val col = Map(
-    "PostId" -> 1,
-    "PostCreationDate" -> 2,
-    "OwnerUserId" -> 3,
-    "OwnerCreationDate" -> 4,
-    "ReputationAtPostCreation" -> 5,
-    "OwnerUndeletedAnswerCountAtPostTime" -> 6,
-    "Title" -> 7,
-    "BodyMarkdown" -> 8,
-    "Tag1" -> 9,
-    "Tag2" -> 10,
-    "Tag3" -> 11,
-    "Tag4" -> 12,
-    "Tag5" -> 13,
-    "PostClosedDate" -> 14,
-    "OpenStatus" -> 15)
+//  val col = Map(
+//    "PostId" -> 1,
+//    "PostCreationDate" -> 2,
+//    "OwnerUserId" -> 3,
+//    "OwnerCreationDate" -> 4,
+//    "ReputationAtPostCreation" -> 5,
+//    "OwnerUndeletedAnswerCountAtPostTime" -> 6,
+//    "Title" -> 7,
+//    "BodyMarkdown" -> 8,
+//    "Tag1" -> 9,
+//    "Tag2" -> 10,
+//    "Tag3" -> 11,
+//    "Tag4" -> 12,
+//    "Tag5" -> 13,
+//    "PostClosedDate" -> 14,
+//    "OpenStatus" -> 15)
 
   val lukesPath = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_is_null_creation_gt_2011-08-13.csv"""
   val lukesPath2 = """C:\Users\Luke\Dropbox\MLFinalProj (1)\data\postTypeId=1_closed_gt_2011-08-13_creation_gt_2011-08-13.csv"""
@@ -84,8 +85,12 @@ object Test {
   def tagsToFeatures(tags: String): Array[String] = tags.drop(1).dropRight(1).split("><")
 
   def bucketizeBodyLength(len: Int): String =
-    if (len < 1000) "0-1000"
-    else "1000+"
+    if (len < 100) "0-100"
+    else if (len < 500) "100-500"
+    else if (len < 1000) "500-1000"
+    else if (len < 2000) "1000-2000"
+    else if (len < 5000) "2000-5000"
+    else "5000+"
 
   // todo: write regexes to strip html and also add special features when html is removed like "#CodeTag#", "#PreTag"#, "#BlockquoteTag#", etc
   def tokenize(body: String): (Seq[String], Seq[String]) = {
@@ -109,6 +114,8 @@ object Test {
     rows.drop(1)
   }
 
+//  def writeResultsToFile(fileName: String)
+
   // todo: use factories TUI args classes for this to add nice options like for stoplists?
   def main(rawArgs: Array[String]): Unit = {
 
@@ -119,62 +126,106 @@ object Test {
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
-    val instances = new ArrayBuffer[(Boolean, Int, Seq[String], Seq[String])]
+    val instances = new ArrayBuffer[(Boolean, Boolean, Int, Seq[String], Seq[String])]
     for (r <- rows) {
-      val bodyStr = cell(r, "BodyMarkdown")
-      val closedDateStr = cell(r, "OpenStatus")
-      val idStr = cell(r, "PostId")
-//      val tagsStr = cell(r, "Tags")
+//      val bodyStr = cell(r, "BodyMarkdown")
+      val bodyStr = cell(r, "Body")
+//      val closedDateStr = cell(r, "OpenStatus")
+      val closedDateStr = cell(r, "ClosedDate")
+//      val idStr = cell(r, "PostId")
+      val idStr = cell(r, "Id")
+      val tagsStr = cell(r, "Tags")
+      val titleStr = cell(r, "Title")
       val extraFeatures = new mutable.ArrayBuffer[String]
-//      extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
+      extraFeatures ++= titleStr.split("\\w+").map("#Title-" + _ + "#")
+      extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
+      // remove possible duplicates from test set
+      val possibleDuplicate = possibleDuplicateRegex.findFirstIn(bodyStr).isDefined
       val (tokens, fts) = tokenize(bodyStr)
       extraFeatures ++= fts
-      extraFeatures ++= List("Tag1","Tag2","Tag3","Tag4","Tag5").map(cell(r,_)).map("#Tag-" + _ + "#")
+//      extraFeatures ++= List("Tag1","Tag2","Tag3","Tag4","Tag5").map(cell(r,_)).map("#Tag-" + _ + "#")
       val id = idStr.toInt
-      val isClosed = closedDateStr == "closed"
-      instances += ((isClosed, id, tokens, extraFeatures))
+      val isClosed = closedDateStr != null
+      instances += ((isClosed, possibleDuplicate, id, tokens, extraFeatures))
     }
 
     object FeaturesDomain extends CategoricalTensorDomain[String] { dimensionDomain.gatherCounts = true }
     object LabelDomain extends CategoricalDomain[String]
 
+    val possibleDuplicates = new mutable.HashSet[Label]()
+    val docCounts = new mutable.HashMap[String, Int]()
     val labels = new LabelList[Label, Features](_.features)
     for (i <- 1 to 2) {
-      for ((isClosed, id, tokens, extraFeatures) <- instances) {
+      var curInstance = 0
+      for ((isClosed, possibleDuplicate, id, tokens, extraFeatures) <- instances) {
+        curInstance += 1
         val unigrams = tokens.map(_.toLowerCase)
         // nice, can run on my laptop with 1-2-3 grams giving 2.2 million features
         def grams(i: Int) = unigrams.sliding(i).map(_.mkString(":"))
 
-        val f = new BinaryFeatures(if (isClosed) "Closed" else "Open", id.toString, FeaturesDomain, LabelDomain) {
+        val f = new NonBinaryFeatures(if (isClosed) "Closed" else "Open", id.toString, FeaturesDomain, LabelDomain) {
           override val skipNonCategories = true
         }
-        unigrams.foreach(f +=)
+
+        def appearsMoreThanOnce(feat: String): Boolean = FeaturesDomain.dimensionDomain.count(feat) > 1
+
+        if (i == 2) {
+          val unigramCounts = unigrams
+            .filter(appearsMoreThanOnce)
+            .groupBy(identity)
+            .mapValues(_.length)
+          if (unigramCounts.size > 0) {
+            val len = unigrams.length: Double
+            val numDocs = instances.length: Double
+            val tf = unigramCounts.mapValues(_ / len)
+            val idf = unigramCounts.map(t => {
+              t._1 -> math.log(numDocs / docCounts(t._1))
+            })
+            val maxtf = tf.values.max
+            val tfidf = unigramCounts.map({ case (k, _) => k -> tf(k) / maxtf * idf(k) })
+//            unigramCounts.keys.foreach(k => f += (k + "#TFIDF#", tfidf(k)))
+            unigramCounts.keys.foreach(k => f += (k, 1))
+            f += ("#AVGTFIDF#", tfidf.values.sum / tfidf.size)
+          }
+          if (curInstance % 10000 == 0) println("Processed " + curInstance + " instances.")
+        } else {
+          unigrams.distinct.foreach(u => {
+            docCounts(u) = docCounts.getOrElse(u, 0) + 1
+            f += u
+          })
+        }
 //        grams(2).foreach(f +=)
 //        grams(3).foreach(f +=)
-        extraFeatures.foreach(f +=)
+        extraFeatures.distinct.foreach(f +=)
 
         // try some cross products of tags and word features
         val tags = extraFeatures.distinct.filter(_.startsWith("#Tag"))
-        unigrams.distinct.flatMap(u => tags.map(ef => "#Pair-" + u + ":" + ef + "#")).foreach(f +=)
+        unigrams.distinct
+          .flatMap(u => tags.map(ef => "#Pair-" + u + ":" + ef + "#"))
+          .filter(f => i == 1 || appearsMoreThanOnce(f))
+          .foreach(f +=)
 
         // sanity check
 //        if (isClosed) f += "#GROUNDTRUTH#"
 
         labels += f.label
         labels.instanceWeight(f.label) = if (isClosed) 1.0 else 1.0
+        if (possibleDuplicate) possibleDuplicates += f.label
       }
       if (i == 1) {
         // TODO just add some extra features for like # of uncommon words, etc - don't trim
-        FeaturesDomain.dimensionDomain.trimBelowCount(2)
+//        FeaturesDomain.dimensionDomain.trimBelowCount(2)
         labels.remove(0, labels.length)
       }
     }
 
     val (trlabels, tslabels) = labels.shuffle(new Random(42)).split(0.7)
-    val trainLabels = new LabelList[Label, Features](trlabels, _.features)
-    val testLabels = new LabelList[Label, Features](tslabels, _.features)
+    val trainLabels = new LabelList[Label, Features](trlabels.filterNot(possibleDuplicates), _.features)
+    val testLabels = new LabelList[Label, Features](tslabels.filterNot(possibleDuplicates), _.features)
 
     println("Read " + labels.length + " instances with " + instances.filterNot(_._1).length + " closed questions.")
+
+    println("Discarded " + possibleDuplicates.size + " possible duplicates from data set.")
 
     println("Vocabulary size: " + FeaturesDomain.dimensionDomain.size)
 
@@ -184,22 +235,32 @@ object Test {
     println("Top 40 features with highest information gain: ")
     new InfoGain(labels).top(40).foreach(println(_))
 
-    val model = new LogLinearModel[Label, Features](_.features, LabelDomain, FeaturesDomain)
-    val classifier = new ModelBasedClassifier[Label](model, LabelDomain)
+    case class Speriment(technique: String, numInstances: Int, f1Closed: Double, f1Open: Double)
 
-    val start = System.currentTimeMillis
-//    trainModelSVMSGD(trainLabels, model)
-//    trainModelLogisticRegression(trainLabels, model)
-    // this one's pretty much the best right now and fast
-    trainModelLogisticRegressionSGD(trainLabels, model)
-//    trainModelLibLinearSVM(trainLabels, model)
-    // ARG stupid naive bayes being almost as good as logistic reg and SVM
-//    trainModelNaiveBayes(trainLabels, model)
+    val trainers = Map[String, (LabelList[Label, Features], LogLinearModel[Label, Features]) => Unit](
+      "Hinge Loss w/ AdaGrad" -> trainModelSVMSGD
+    , "Log Loss w/ AdaGrad" -> trainModelLogisticRegressionSGD
+    , "Naive Bayes" -> trainModelNaiveBayes
+    , "Liblinear SVM" -> trainModelLibLinearSVM
+//    , "L2 Logistic Regression" -> trainModelLogisticRegression
+    )
 
-    println("Classifier trained in " + ((System.currentTimeMillis - start) / 1000.0) + " seconds.")
+    val results = for ((trainerName, trainer) <- trainers) yield {
+      println("=== " + trainerName + " ===")
+      val model = new LogLinearModel[Label, Features](_.features, LabelDomain, FeaturesDomain)
+      val classifier = new ModelBasedClassifier[Label](model, LabelDomain)
 
-    printTrial("== Training Evaluation ==", trainLabels, classifier)
-    printTrial("== Testing Evaluation ==", testLabels, classifier)
+      val start = System.currentTimeMillis
+      trainer(trainLabels, model)
+
+      println("Classifier trained in " + ((System.currentTimeMillis - start) / 1000.0) + " seconds.")
+
+      printTrial("== Training Evaluation ==", trainLabels, classifier)
+      val (f1Closed, f1Open) = printTrial("== Testing Evaluation ==", testLabels, classifier)
+      Speriment(trainerName, trainLabels.length + testLabels.length, f1Closed, f1Open)
+    }
+
+//    results.foreach()
   }
 
   def trainModelLogisticRegression(labels: LabelList[Label, Features], model: LogLinearModel[Label, Features]) = {
@@ -247,11 +308,15 @@ object Test {
     }
   }
 
-  def printTrial(label: String, labels: Iterable[Label], classifier: Classifier[Label]): Unit = {
+  def printTrial(label: String, labels: Iterable[Label], classifier: Classifier[Label]): (Double, Double) = {
+    val origSettings = labels.map(l => l -> l.intValue).toMap
     val testTrial = new Trial[Label](classifier)
     testTrial ++= labels
     println(label)
     println(testTrial.toString)
+    val results = (testTrial.f1(0), testTrial.f1(1))
+    labels.foreach(l => l.set(origSettings(l))(null))
+    results
   }
 
   def collectWhile[A: Manifest](cond: => Boolean)(value: => A): Seq[A] = {

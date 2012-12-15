@@ -100,6 +100,7 @@ were in our initial testing were:
   \item Body - the raw text of the question
   \item Tags - user provided question categories (e.g. Java,
     algorithms, etc.)
+  \item ClosedDate - a non-null value here indicates that the post was closed.
 \end{enumerate}
 
 Midway through our experiments, we discovered a \emph{Kaggle}
@@ -161,7 +162,7 @@ FACTORIE library \cite{mccallum09:factorie:}, written in Scala, that is develope
  \begin{itemize}
 \item \textbf{Naive bayes}: The Naive Bayes classifier counts up occurences of features in each class, weighted by number of instances in the class. The weights learned represent basically the sum of all instances in the class, and new classifications are made by picking the class with the highest dot product. This extremely simple method gives a high-bias, low-variance classifier which can be effective for data sets where overfitting is a strong possibility, and as such worked surprisingly well on our data.
 \item \textbf{L2-regularized Logistic regression}: We used FACTORIE's logistic regression implementation, which trains a log loss and l2-regularizer using LBFGS. Logistic regression attempts to learn a probabilistic classifier which makes the minimal amount of assumptions about the data. For example, there are no assumptions of independence between features.
-\item \textbf{Liblinear SVM}: We used FACTORIE's implementation of Liblinear \cite{chang:08a}, a fast dual coordinate descent algorithm for learning SVM's with linear kernels. We used the L2 regularized, L2 loss version.
+\item \textbf{Liblinear SVM}: We used FACTORIE's implementation of Liblinear \cite{chang:08a}, a fast dual coordinate descent algorithm for learning SVM's with linear kernels. We used the L2 regularized, L1 loss version.
 \item \textbf{AdaGrad with hinge loss and log loss}: We also tested two online algorithms against the other exact solvers, training hinge loss (SVM) and log loss (logistic regression) using the AdaGrad algoritm \cite{duchi:11a}. These loss functions were unregularized (did not include a penalty for the weights), but AdaGrad includes variable learning rates for each feature which has the effect of softly regularizing the weights. We found the online algorithms gave better performance over the exact solvers (the online strategy of regret minimization helps to prevent over-fitting), and made training times orders of magnitude faster.
 \end{itemize}
 \subsection*{Information gain.}We found \emph{information gain} \cite{wiki:infogain} to be a useful tool for cleaning the data of moderator edits and other features that proxy the ground truth. The information gain of a feature is a measure of the benefit of that feature for classification. We split the instances according to those possessing a feature and those lacking it, and measure the gain in entropy between the two resulting instance label distributions and the original distribution. If the two distributions are very dissimilar (i.e. lots of closed questions in one group, few in the other, compared to the original one), then that feature does a good job of distinguishing the two classes and has a high information gain. Features with extremely high information gain are probably too good to be true and the result of common patterns in moderator edits - we need to remove those features in our pre-processing. This is the formula for information gain:
@@ -214,17 +215,18 @@ Though our project was largely successful, there are many
 opportunities for extending the work.  As a first step, we're
 interested repeating the same experiments with a much larger data
 set. With more data, there is a chance that we will get better
-classification performance.  However, handling a larger data set poses
-serious engineering problems.  For example, the entire
-StackOverflow data set is
+classification performance. However, handling a larger data set poses
+serious engineering problems.  The entire
+StackOverflow data set contains 4.1 million questions - our experiments used only 100,000 (2.4\% of that). 
+Additional features could probably improve our performance even more.
 
-\begin{itemize}
-\item Use kaggle data set (which we have)
-\item We’ll need to split up the data (because it’s big) to be able to use it; we’re planning to learn the weights of our linear classifier using stochastic gradient descent (blocked-adagrad)
-\item Add more features (TFIDF, other NLP features), heuristic of adding number of rare words from Alex’s paper
-\item Try out new classifiers - random forests
-\item Try things besides open/closed - like answered/unanswered
-\end{itemize}
+We would also like to experiment with more question categories than just closed/open. For example, it would be a useful facility for users and moderators to be able to predict whether or not a certain question was likely to be answered. This could help users determine whether to add bounties to a question (which trade reputation from the asker to the answerer), or to move the question to some other, more domain-specific, StackExchange website. An extension to this would be to predict how long an asker could expect to wait before receiving an answer to their question.
+
+We would also like to try some nonlinear classifiers, such as decision trees and random forests. We had trouble getting these to train in reasonable time on our data set, but this is probably more the fault of the inefficient implementation (written by one of the authors) than the algorithms themselves.
+
+\section{Conclusion}
+
+Crushed it.
 
 \bibliography{bib}{}
 \bibliographystyle{plain}
