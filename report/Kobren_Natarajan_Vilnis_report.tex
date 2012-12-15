@@ -5,7 +5,7 @@
 \newcommand{\htmltag}{$\lt${htmltag}$\gt$}
 \setlength{\parskip}{5pt}
 
-\title{Project Report - Classification of Questions on Stackoverflow\\ Machine Learning, Fall 2012}
+\title{Project Report - Classification of Questions on StackOverflow\\ Machine Learning, Fall 2012}
 \author{Luke Vilnis, Annamalai Natarajan, Ariel Kobren}
 
 \begin{document}
@@ -59,7 +59,7 @@ falls into one of these five categories:
  Currently, closing questions is a manual process that
 depends on the StackOverflow moderators paying close attention to every
 question being asked. Closed questions also suffer from a class imbalance problem:
-Stackoverflow estimates that only 6\% of its questions are closed each
+StackOverflow estimates that only 6\% of its questions are closed each
 year.
 
  In our project, we address the problem of detecting StackOverflow
@@ -67,45 +67,12 @@ questions that should be closed.  Using data gathered directly from
 StackOverflow and various machine learning techniques, we train several classifiers to perform this detection automatically.
 
 \section{Data set}
-In our initial work, we use a data set collected using
-Stackoverflow's \emph{StackExchange Data Explorer}
+We use a data set collected using
+StackOverflow's \emph{StackExchange Data Explorer}
 \cite{website:stackexchange}. This online tool
 allows users to query raw data directly from
-Stackoverflow. Specifically, we issued the following commands:
-
-\begin{verbatim}
-SELECT
-  Posts.*,
-  Users.Reputation
-FROM Posts
-  INNER JOIN Users ON Users.Id=Posts.OwnerUserId
-WHERE
-  Posts.PostTypeId=1 AND
-  Posts.CreationDate > '20120801' AND
-  Posts.ClosedDate IS NULL
-ORDER BY
-  Posts.CreationDate
-
-SELECT
-  Posts.*,
-  Users.Reputation
-FROM Posts
-  INNER JOIN Users ON Users.Id=Posts.OwnerUserId
-WHERE
-  Posts.PostTypeId=1 AND
-  Posts.CreationDate > '20120801' AND
-  Posts.ClosedDate > '20100101'
-ORDER BY
-  Posts.CreationDate
-\end{verbatim}
-
-These two queries aim to retrieve all questions (PostTypeId=1 represents a question, as opposed to a comment or an answer) posted on StackOverflow on or after August 13$^{\textrm{th}}$, 2011 that: 1)
-were closed on or after August 13$^{\textrm{th}}$ and 2) have not been
-closed, respectively.  However, to prevent overloading the StackExchange servers, the Data
-Explorer will not return more than 50,000 rows at a time.  Thus, after
-issuing these two queries, we had collected a data set of 50,000
-questions that had been closed (55MB) and 50,000 that were still open as of
-query issue date (75MB).
+StackOverflow. We retrieved a data set of 100,000 questions that had been closed (110MB) and 
+100,000 (150MB) that were still open as of the date of this publication.
 
 The data was formatted as CSV files and contained the following
 fields: \emph{Question Id}, \emph{PostTypeId},
@@ -116,16 +83,16 @@ fields: \emph{Question Id}, \emph{PostTypeId},
 \emph{Tags}, \emph{AnswerCount}, \emph{CommentCount},
 \emph{FavoriteCount}, \emph{ClosedDate}, \emph{CommunityOwnedDate} and
 \emph{Reputation}. Of these fields, the fields that we worked
-with were in our initial testing were:
+with were:
 
 \begin{enumerate}
-  \item Body - the raw text of the question
-  \item Tags - user provided question categories (e.g. Java,
+  \item \textbf{Body}: the raw text of the question
+  \item \textbf{Tags}: user provided question categories (e.g. Java,
     algorithms, etc.)
-  \item ClosedDate - a non-null value here indicates that the post was
+  \item \textbf{ClosedDate}: a non-null value here indicates that the post was
     closed.
-    \item Reputation - the StackOverflow reputation of the user who
-      asked the question
+    \item \textbf{Reputation}: the StackOverflow reputation of the user who
+      asked the question.
 \end{enumerate}
 
 \subsection{Pre-processing}
@@ -141,9 +108,7 @@ recent version, which includes moderator edits. This is obviously a
 problem because moderator edits are highly correlated to ``Closed''
 status, and using them as features would defeat the purpose of
 building a classifier to automatically detect such questions. We used
-several heuristics to detect such edits. Finally, any urls, which
-often indicate a hyperlink to a similar question on Stackoverflow,
-were removed.
+several heuristics (based on manual inspection of closed posts and information gain) to detect such edits.
 
 Finally, we had to remove questions that were closed because they were
 found to be duplicates of other questions on StackOverflow.  The
@@ -178,19 +143,18 @@ the metadata. Metadata features are annotated with a specific tag
 words when added to the feature vector. The metadata features:
 
 \begin{itemize}
-  \item \textbf{Bucketed question length}: a collection of binary
+  \item \textbf{Bucketed Question Length}: a collection of binary
     features taking the value $1$ if the number of characters in a
-    question falls in a certain range.
-  \item \textbf{Question tags}: we add each question tag (such as
-    ``Java''), as well as conjunctions of tags and vocabulary words
-    (these are useful to detect off-topic questions).
+    question falls in a certain range. Very short questions had a high correlation with being closed.
+  \item \textbf{Question Tags}: we add each question tag (such as
+    ``Java'').
   \item \textbf{Title}: we add the unigrams contained in the question
-    title to the respective feature vector.
+    title to the respective feature vector. One of the best indicators of an asinine question is an asinine title. For example, the occurrence of the character ``?'' in a question title was a common indicator of a bad question as it flouts the normal naming conventions on StackOverflow.
   \item \textbf{Replacement Tags}: for each question, we strip out
     URLs, code, images and blockquotes and indicate their presence
-    with a binary feature (e.g ``\#CODE\#'').
+    with a binary feature (e.g ``\#CODE\#''). This is a nice indicator of question quality as a user that takes the time to include quotes, images, citations, or code in their post is probably asking a thoughtful question. All additional tags were removed with no indication they had been there, as some of them (such as bold text) indicate likely moderator edits.
   \item \textbf{Reputation}: we bin the user reliability and add it as
-    a feature.
+    a feature. Users with higher reputation are unlikely to ask bad questions.
 \end{itemize}
 
 Before extracting features from question bodies, first, each question
@@ -216,9 +180,10 @@ features:
       tf(t,d) &= \frac{frequency(t,d)}{max\{frequency(w,d):w \in d\}}\\
       idf(t,D) &= \log\frac{|D|}{|\{d \in D : t \in d \}|}\\
     \end{align*}
+    We hoped that TF-IDF would help us detect questions that were too specific, though the results were mixed, as we discuss later. 
 \end{itemize}
 Using all of the features described above, we constructed a set of
-features with domain size of approximately 7.5 million.
+features with domain size of approximately 7.5 million. Thanks to our use of fast techniques like Liblinear and (especially) SGD, we were still able to run the experiments easily on a laptop.
 
 \section{Software}
 
@@ -241,18 +206,17 @@ for the implementation of the classifiers and learning algorithms
 (such as AdaGrad) that we used in this project.
 
 In addition to third party software, we also wrote a large chunk of
-the experiments ourselves.  The code that we wrote includes all of the
-preprocessing, feature extraction and the code to run our experiments
+code ourselves.  The code that we wrote includes all of the
+preprocessing, feature extraction (including TF-IDF) and the code to run our experiments
 with increasing dataset sizes.  All of this code is written in
 Scala. In addition, we also wrote code in Matlab to generate our
 plots.  All of this code is available on Github at:
 https://github.com/lvilnis/StackExchange-Regression.
 
 \section{Machine learning methods}
-\subsection*{Classifiers}We tested 5 different classifiers on our data. Before we added more sophisticated features to our data, we found that Naive Bayes gave the best performance, but as we added features the log loss trained with the AdaGrad algorithm pulled ahead of the other strategies.
+\subsection*{Classifiers}We tested 4 different classifiers on our data. Before we added more sophisticated features to our data, we found that Naive Bayes gave the best performance, but as we added features the log loss trained with the AdaGrad algorithm pulled ahead of the other strategies.
  \begin{itemize}
 \item \textbf{Naive bayes}: The Naive Bayes classifier counts up occurences of features in each class, weighted by number of instances in the class. The weights learned represent basically the sum of all instances in the class, and new classifications are made by picking the class with the highest dot product. This extremely simple method gives a high-bias, low-variance classifier which can be effective for data sets where overfitting is a strong possibility, and as such worked surprisingly well on our data.
-\item \textbf{L2-regularized Logistic regression}: We used FACTORIE's logistic regression implementation, which trains a log loss and l2-regularizer using LBFGS. Logistic regression attempts to learn a probabilistic classifier which makes the minimal amount of assumptions about the data. For example, there are no assumptions of independence between features.
 \item \textbf{Liblinear SVM}: We used FACTORIE's implementation of Liblinear \cite{chang:08a}, a fast dual coordinate descent algorithm for learning SVM's with linear kernels. We used the L2 regularized, L1 loss version.
 \item \textbf{AdaGrad with hinge loss and log loss}: We also tested two online algorithms against the other exact solvers, training hinge loss (SVM) and log loss (logistic regression) using the AdaGrad algoritm \cite{duchi:11a}. These loss functions were unregularized (did not include a penalty for the weights), but AdaGrad includes variable learning rates for each feature which has the effect of softly regularizing the weights. We found the online algorithms gave better performance over the exact solvers (the online strategy of regret minimization helps to prevent over-fitting), and made training times orders of magnitude faster.
 \end{itemize}
@@ -262,7 +226,7 @@ https://github.com/lvilnis/StackExchange-Regression.
 InfoGain(f, P(x)) = H(P(x)) - \alpha*H(P(x|f=1)) - (1 - \alpha)*H(P(x|f=0))\\
 \end{split}
 \end{equation*}
-Where $f$ is some binary feature, and $\alpha$ is the percentage of examples with the feature present.
+Where $f$ is some binary feature, and $\alpha$ is the percentage of examples with the feature present. In addition to being helpful for removing moderator edits, the information gain provides sometimes amusing insights into the sort of features that characterize a bad question.
 
 \subsection*{AdaGrad}We used the AdaGrad \cite{duchi:11a} stochastic (sub)gradient descent algorithm to train our classifiers. AdaGrad (which we used with the Composite Mirror Descent update \cite{duchi:10a}) does proximal mirror descent with a squared Mahalanobis distance (under an adaptively estimated covariance matrix) as the proximal function. Keeping the covariance matrix diagonal for tractability, this is effectively a set of per-coordinate learning rates which are adjusted according to how much gradient AdaGrad has seen for a given feature. The form of AdaGrad which we used for this project has the following update equation:
 \begin{equation*}
@@ -274,15 +238,14 @@ w_i &\leftarrow w_i + \alpha \cdot \frac{1}{\rho + \sqrt{G_i}} \cdot \partial_i\
 Where $\textbf{G}$ is a vector of learning rates, $\textbf{w}$ is a vector of weights to be learned, $\alpha$ is the a learning rate, $\rho$ is a ridge for good conditioning, and $\partial$ is the (sub)gradient of the loss function.
 
 \section{Results}
-In our experiments, we aimed at measuring 2 quantities: 1) over test
-set accuracy and 2) classifier accuracy as a function of the size of
-the train set.  To do this, we split our data set randomly into 70\%
+In our experiments, we aimed at measuring 2 quantities: 1) f1 scores for the open and closed question classes and 2) f1 scores as a function of the size of
+the train set and classifier.  We did not plot test set accuracy due to the label imbalance, but with a 2:1 imbalance achieved a high of 77\% accuracy on the largest data set (200K instances). To do this, we split our data set randomly into 70\%
 train and 30\% test.  We trained multiple classifiers on the training
 data and measured their performance on predicting closed questions in
 the test set.  We repeated this experiment 5 times, each time varying
 the size of the overall data set used.  The sizes of our data sets
-(measured in number of instances) were: 40,000, 80,000, 120,000,
-160,000 and 200,000.
+(measured in number of instances) were: 20,000, 40,000, 60,000,
+80,000, 100,000 and 200,000. The actual number of instances appearing in the plots is a bit less than this after we removed questions that were closed as duplicates.
 
 \begin{figure}
 \centering
@@ -291,20 +254,20 @@ the size of the overall data set used.  The sizes of our data sets
 \label{fig:results}
 \end{figure}
 
-As predicted, all of our classifiers improve as we increase the number
+As predicted, all of our classifiers except Naive Bayes improve as we increase the number
 of the training instances. However, SVM did not perform as well as
-expected.
+expected. Naive Bayes performs well at small data sizes since its independence assumptions have the effect of extreme regularization, but when the data set increases and rare features start to pay off for the discriminative models, it is left behind.
 
 \section{Discussion}
 
 \subsection{Train Set Accuracy}
 In almost all of our experiments, the accuracy achieved on the
 training set was near 100\%.  Despite this, our results show our
-accuracy on the held-out test set to be close to 75\%.  We believe
+accuracy on the held-out test set to be close to 77\%.  We believe
 that the reason for this is that we didn't design features that
 captured the essence of the problem we were trying to solve; that is,
 our features didn't capture the entirety of what leads a question to
-be ``closed.''
+be ``closed.'' Since StackOverflow questions range over a massive variety of topics, the vast majority of features are irrelevant to the classification problem, and the discriminative classifiers can basically learn each instance of the training data without being able to generalize. Because the problem is due to lack of features, regularization does not help this.
 
 \subsection{Unhelpful Features}
 In the process of refining our experiments, we tested the affect of a
@@ -313,14 +276,28 @@ they did not improve overall accuracy on the test set. These features
 include: bag of bigrams/trigrams and a bag of unigrams with their
 TF-IDF scores.
 
-\section{Future directions}
+\subsection{Information Gain}
+We printed some of the features with the highest information gain scores from the largest data set. These give some interesting insights into what makes a bad (or good) question, and are reproduced below:
+\begin{verbatim}
+#BodyLength100-500# 0.028405358487946564
+i 0.020894113048683383
+#BodyLength1000-2000# 0.015941228612086356
+my 0.012440027418109456
+#BodyLength0-100# 0.011804729280472714
+trying 0.011643782356259291
+#Title-?# 0.011598807275622569
+works 0.011317692545123492
+problem 0.011169111132456555
+\end{verbatim}
+
+\section{Future Directions}
 Though our project was largely successful, there are many
 opportunities for extending the work.  As a first step, we're
 interested repeating the same experiments with a much larger data
 set. With more data, there is a chance that we will get better
 classification performance. However, handling a larger data set poses
-serious engineering problems.  The entire
-StackOverflow data set contains 4.1 million questions - our experiments used only 100,000 (2.4\% of that).
+serious engineering problems. Additionally, since we over-sampled for closed questions, the label imbalance problem will increase, which could pose more challenges. The entire
+StackOverflow data set contains 4.1 million questions - our experiments used only 200,000 (5\% of that).
 Additional features could probably improve our performance even more.
 
 We would also like to experiment with more question categories than just closed/open. For example, it would be a useful facility for users and moderators to be able to predict whether or not a certain question was likely to be answered. This could help users determine whether to add bounties to a question (which trade reputation from the asker to the answerer), or to move the question to some other, more domain-specific, StackExchange website. An extension to this would be to predict how long an asker could expect to wait before receiving an answer to their question.
@@ -333,9 +310,9 @@ or not a given question would be closed on StackOverflow. Before
 training, we needed to significantly pre-process the data. We
 extracted multiple features from both the metadata and body of each
 question and used them to train multiple classifiers for closed
-question prediction. Among these trained classifiers, logistic
+question prediction. Among these trained classifiers, AdaGrad logistic
 regression performed best with an overall accuracy of approximately
-74\%. Moreover, we demonstrated that classifier performance
+77\%. Moreover, we demonstrated that classifier performance
 dramatically increases with the size of the training set.  While there
 are many opportunities to extend this project, out project establishes
 a foundation for ``appropriateness'' prediction of questions on online
