@@ -142,7 +142,7 @@ object Test {
     val args = if (rawArgs.isEmpty) Array(lukesPath, lukesPath2) else rawArgs
 
     // shuffle instances and take 10K for now
-    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(100000)
+    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(200000)
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
@@ -240,8 +240,10 @@ object Test {
       }
     }
 
+    docCounts.clear()
+
     val results = new mutable.HashSet[Speriment]()
-    for (numInstances <- 20000 to labels.length by 20000) {
+    for (numInstances <- 200000 to labels.length by 20000) {
       val usedLabels = labels.take(numInstances)
       val (trlabels, tslabels) = usedLabels.shuffle(new Random(42)).split(0.7)
       val trainLabels = new LabelList[Label, Features](trlabels.filterNot(possibleDuplicates), _.features)
