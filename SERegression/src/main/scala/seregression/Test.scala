@@ -7,6 +7,7 @@ import cc.factorie.app.classify._
 import la.{Tensor, Tensor1}
 import optimize._
 import org.supercsv.io.CsvListReader
+import org.supercsv.io.CsvListWriter
 import org.supercsv.prefs.CsvPreference
 import edu.stanford.nlp.process.{CoreLabelTokenFactory, PTBTokenizer}
 import edu.stanford.nlp.ling.CoreLabel
@@ -92,6 +93,14 @@ object Test {
     else if (len < 5000) "2000-5000"
     else "5000+"
 
+  def bucketizeReputation(rep: Int): String = {
+    if (rep < 10) "0-10"
+    else if (rep < 50) "10-50"
+    else if (rep < 200) "50-200"
+    else if (rep < 1000) "200-1000"
+    else "1000+"
+  }
+
   // todo: write regexes to strip html and also add special features when html is removed like "#CodeTag#", "#PreTag"#, "#BlockquoteTag#", etc
   def tokenize(body: String): (Seq[String], Seq[String]) = {
     val feats = new ArrayBuffer[String]
@@ -114,7 +123,18 @@ object Test {
     rows.drop(1)
   }
 
-//  def writeResultsToFile(fileName: String)
+  case class Speriment(technique: String, numInstances: Int, f1Closed: Double, f1Open: Double)
+
+  def writeResultsToFile(fileName: String, exps: Iterable[Speriment]): Unit = {
+    val csvFile = new File(fileName)
+    val bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(csvFile)))
+    val writer = new CsvListWriter(bw, CsvPreference.STANDARD_PREFERENCE)
+    writer.write("Classifier", "NumInstances", "F1 Closed", "F1 Open")
+    for (Speriment(t, n, f1c, f1o) <- exps)
+      writer.write(t.toString, n.toString, f1c.toString, f1o.toString)
+    writer.flush()
+    bw.close()
+  }
 
   // todo: use factories TUI args classes for this to add nice options like for stoplists?
   def main(rawArgs: Array[String]): Unit = {
@@ -136,10 +156,11 @@ object Test {
       val idStr = cell(r, "Id")
       val tagsStr = cell(r, "Tags")
       val titleStr = cell(r, "Title")
+      val repStr = cell(r, "Reputation")
       val extraFeatures = new mutable.ArrayBuffer[String]
       extraFeatures ++= titleStr.split("\\w+").map("#Title-" + _ + "#")
       extraFeatures ++= tagsToFeatures(tagsStr).map("#Tag-" + _ + "#")
-      // remove possible duplicates from test set
+      extraFeatures += "#Reputation" + bucketizeReputation(repStr.toInt) + "#"
       val possibleDuplicate = possibleDuplicateRegex.findFirstIn(bodyStr).isDefined
       val (tokens, fts) = tokenize(bodyStr)
       extraFeatures ++= fts
@@ -219,48 +240,50 @@ object Test {
       }
     }
 
-    val (trlabels, tslabels) = labels.shuffle(new Random(42)).split(0.7)
-    val trainLabels = new LabelList[Label, Features](trlabels.filterNot(possibleDuplicates), _.features)
-    val testLabels = new LabelList[Label, Features](tslabels.filterNot(possibleDuplicates), _.features)
+    val results = new mutable.HashSet[Speriment]()
+    for (numInstances <- 20000 to labels.length by 20000) {
+      val usedLabels = labels.take(numInstances)
+      val (trlabels, tslabels) = usedLabels.shuffle(new Random(42)).split(0.7)
+      val trainLabels = new LabelList[Label, Features](trlabels.filterNot(possibleDuplicates), _.features)
+      val testLabels = new LabelList[Label, Features](tslabels.filterNot(possibleDuplicates), _.features)
 
-    println("Read " + labels.length + " instances with " + instances.filterNot(_._1).length + " closed questions.")
+      println("Read " + usedLabels.length + " instances with " + usedLabels.filterNot(_.intValue == 0).length + " closed questions.")
 
-    println("Discarded " + possibleDuplicates.size + " possible duplicates from data set.")
+      println("Discarded " + usedLabels.filter(possibleDuplicates).size + " possible duplicates from data set.")
 
-    println("Vocabulary size: " + FeaturesDomain.dimensionDomain.size)
+      println("Vocabulary size: " + FeaturesDomain.dimensionDomain.size)
 
-    // in addition to information gain I want to print out the way the feature changes the distribution
-    // so like if the orig dist is [0.5, 0.5] and the new dists are [0.25, 0.75] and [0.75, 0.25], I want to see
-    // [0.5, -0.5] or something
-    println("Top 40 features with highest information gain: ")
-    new InfoGain(labels).top(40).foreach(println(_))
+      // in addition to information gain I want to print out the way the feature changes the distribution
+      // so like if the orig dist is [0.5, 0.5] and the new dists are [0.25, 0.75] and [0.75, 0.25], I want to see
+      // [0.5, -0.5] or something
+      println("Top 40 features with highest information gain: ")
+      new InfoGain(labels).top(40).foreach(println(_))
 
-    case class Speriment(technique: String, numInstances: Int, f1Closed: Double, f1Open: Double)
+      val trainers = Map[String, (LabelList[Label, Features], LogLinearModel[Label, Features]) => Unit](
+        "Hinge Loss w/ AdaGrad" -> trainModelSVMSGD
+      , "Log Loss w/ AdaGrad" -> trainModelLogisticRegressionSGD
+      , "Naive Bayes" -> trainModelNaiveBayes
+      , "Liblinear SVM" -> trainModelLibLinearSVM
+  //    , "L2 Logistic Regression" -> trainModelLogisticRegression
+      )
 
-    val trainers = Map[String, (LabelList[Label, Features], LogLinearModel[Label, Features]) => Unit](
-      "Hinge Loss w/ AdaGrad" -> trainModelSVMSGD
-    , "Log Loss w/ AdaGrad" -> trainModelLogisticRegressionSGD
-    , "Naive Bayes" -> trainModelNaiveBayes
-    , "Liblinear SVM" -> trainModelLibLinearSVM
-//    , "L2 Logistic Regression" -> trainModelLogisticRegression
-    )
+      for ((trainerName, trainer) <- trainers) yield {
+        println("=== " + trainerName + " ===")
+        val model = new LogLinearModel[Label, Features](_.features, LabelDomain, FeaturesDomain)
+        val classifier = new ModelBasedClassifier[Label](model, LabelDomain)
 
-    val results = for ((trainerName, trainer) <- trainers) yield {
-      println("=== " + trainerName + " ===")
-      val model = new LogLinearModel[Label, Features](_.features, LabelDomain, FeaturesDomain)
-      val classifier = new ModelBasedClassifier[Label](model, LabelDomain)
+        val start = System.currentTimeMillis
+        trainer(trainLabels, model)
 
-      val start = System.currentTimeMillis
-      trainer(trainLabels, model)
+        println("Classifier trained in " + ((System.currentTimeMillis - start) / 1000.0) + " seconds.")
 
-      println("Classifier trained in " + ((System.currentTimeMillis - start) / 1000.0) + " seconds.")
-
-      printTrial("== Training Evaluation ==", trainLabels, classifier)
-      val (f1Closed, f1Open) = printTrial("== Testing Evaluation ==", testLabels, classifier)
-      Speriment(trainerName, trainLabels.length + testLabels.length, f1Closed, f1Open)
+        printTrial("== Training Evaluation ==", trainLabels, classifier)
+        val (f1Closed, f1Open) = printTrial("== Testing Evaluation ==", testLabels, classifier)
+        results += Speriment(trainerName, trainLabels.length + testLabels.length, f1Closed, f1Open)
+      }
     }
 
-//    results.foreach()
+    writeResultsToFile("C:\\experiment-results.csv", results)
   }
 
   def trainModelLogisticRegression(labels: LabelList[Label, Features], model: LogLinearModel[Label, Features]) = {
