@@ -142,7 +142,7 @@ object Test {
     val args = if (rawArgs.isEmpty) Array(lukesPath, lukesPath2) else rawArgs
 
     // shuffle instances and take 10K for now
-    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(200000)
+    val rows = args.toSeq.flatMap(getRowsFromFile(_)).shuffle(new Random(42)).take(200000).toBuffer
 
     def cell(row: Array[String], c: String): String = row(col(c) - 1)
 
@@ -169,6 +169,8 @@ object Test {
       val isClosed = closedDateStr != null
       instances += ((isClosed, possibleDuplicate, id, tokens, extraFeatures))
     }
+
+    rows.clear()
 
     object FeaturesDomain extends CategoricalTensorDomain[String] { dimensionDomain.gatherCounts = true }
     object LabelDomain extends CategoricalDomain[String]
@@ -236,10 +238,12 @@ object Test {
       if (i == 1) {
         // TODO just add some extra features for like # of uncommon words, etc - don't trim
 //        FeaturesDomain.dimensionDomain.trimBelowCount(2)
-        labels.remove(0, labels.length)
+        labels.clear()
+        possibleDuplicates.clear()
       }
     }
 
+    instances.clear()
     docCounts.clear()
 
     val results = new mutable.HashSet[Speriment]()
