@@ -15,7 +15,7 @@ import scala.util.Random
 import scala.util.matching.Regex
 import collection.mutable
 
-object Test {
+object Harness {
 
   val col = Map(
     "Id" -> 1,
